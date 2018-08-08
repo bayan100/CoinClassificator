@@ -1,5 +1,7 @@
 package com.hhu.yannick.coinclassificator;
 
+import android.app.ProgressDialog;
+import android.os.AsyncTask;
 import android.support.design.widget.TabLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -11,6 +13,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -18,8 +21,21 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import android.widget.TextView;
+import android.widget.Toast;
 
-public class ClassifyActivity extends AppCompatActivity {
+import com.hhu.yannick.coinclassificator.AsyncProcessor.DatabaseLoader;
+import com.hhu.yannick.coinclassificator.AsyncProcessor.OnTaskCompleted;
+import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
+
+public class ClassifyActivity extends AppCompatActivity implements OnTaskCompleted {
+
+    private DatabaseLoader databaseLoader;
+    private DatabaseManager databaseManager;
+    private ProgressDialog progress;
+
+    private MachineLearningFragment machineLearningFragment;
+    private FeatureFragment featureFragment;
+    private boolean initialLoadComplete = false;
 
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide
@@ -43,6 +59,19 @@ public class ClassifyActivity extends AppCompatActivity {
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        // create a progress dialog to load the database
+        progress = new ProgressDialog(this);
+        progress.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        progress.setMessage("Loading Database");
+        progress.show();
+
+        // now load the database and bitmap async
+        String file = getIntent().getStringExtra("File");
+        databaseManager = new DatabaseManager(getApplicationContext());
+        databaseLoader = new DatabaseLoader(this, databaseManager, file, getApplicationContext());
+        databaseLoader.execute();
+
         // Create the adapter that will return a fragment for each of the three
         // primary sections of the activity.
         mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
@@ -94,8 +123,10 @@ public class ClassifyActivity extends AppCompatActivity {
         public Fragment getItem(int position) {
             // return the right fragment
             switch (position){
-                case 0: return MachineLearningFragment.newInstance();
-                case 1: return FeatureFragment.newInstance();
+                case 0: machineLearningFragment = MachineLearningFragment.newInstance();
+                    return machineLearningFragment;
+                case 1: featureFragment = FeatureFragment.newInstance();
+                    return featureFragment;
             }
             return null;
         }
@@ -105,5 +136,21 @@ public class ClassifyActivity extends AppCompatActivity {
             // Show 2 total pages.
             return 2;
         }
+    }
+
+    @Override
+    public void onTaskCompleted() {
+        // finished loading the database
+        progress.cancel();
+
+        initialLoadComplete = true;
+        Log.d("EXE", "initialLoad");
+
+        // start the first task execution
+        machineLearningFragment.putLoadedData(databaseManager, databaseLoader.bitmap);
+        featureFragment.putLoadedData(databaseManager, databaseLoader.bitmap);
+
+        // first task so execute at first
+        machineLearningFragment.startExecution();
     }
 }

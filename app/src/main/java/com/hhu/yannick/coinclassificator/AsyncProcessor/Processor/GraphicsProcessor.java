@@ -37,11 +37,15 @@ public class GraphicsProcessor {
         return Status.PASSED;
     }
 
-    public void passData(Map<String, Object> additionalData) {
+    public void passData(Map<String, Object> data) {
         if(this.data == null)
-            this.data = additionalData;
-        else
-            this.data.putAll(additionalData);
+            this.data = data;
+        else {
+            for(String s : data.keySet()) {
+                if(!this.data.containsKey(s))
+                    this.data.put(s, data.get(s));
+            }
+        }
     }
 
     public Map<String, Object> getData() {
@@ -60,14 +64,14 @@ public class GraphicsProcessor {
     protected int getInt(String key){ return (int)parameter.get(key); }
     protected String getString(String key){ return (String) parameter.get(key); }
 
-    protected Mat toMat(Bitmap bitmap){
+    public Mat toMat(Bitmap bitmap){
         Mat image = new Mat();
         Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
         Utils.bitmapToMat(bmp32, image);
         return image;
     }
 
-    protected Bitmap toBitmap(Mat image)
+    public Bitmap toBitmap(Mat image)
     {
         Bitmap bmp32 = Bitmap.createBitmap(image.width(), image.height(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(image, bmp32);

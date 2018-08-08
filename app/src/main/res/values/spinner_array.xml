@@ -5,4 +5,14 @@
     <item>Ellipse + Classify</item>
     <item>Add Trainings Data</item>
 </string-array>
+<string-array name="descriptor_array">
+    <item>SIFT</item>
+    <item>SURF</item>
+    <item>ORB</item>
+</string-array>
+
+<string-array name="matcher_array">
+    <item>Brute Force</item>
+    <item>Flannbased</item>
+</string-array>
 </resources>

@@ -1,6 +1,7 @@
 package com.hhu.yannick.coinclassificator.AsyncProcessor.Processor;
 
 import android.graphics.Bitmap;
+import android.util.Log;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
@@ -23,7 +24,11 @@ public class GrayScaleGP extends GraphicsProcessor {
         Mat dest = new Mat();
         Imgproc.cvtColor(mat, dest, Imgproc.COLOR_RGB2GRAY);
 
-        data.put("mat", mat);
+        data.put("mat", dest);
+
+        // DEBUG
+        Log.d("GRAY", "gray");
+        data.put("bitmap", toBitmap(dest));
         return Status.PASSED;
     }
 }

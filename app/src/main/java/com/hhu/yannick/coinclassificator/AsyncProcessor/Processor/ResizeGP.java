@@ -4,13 +4,20 @@ import android.graphics.Bitmap;
 import android.util.Log;
 
 import org.opencv.core.Mat;
+import org.opencv.core.Point;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ResizeGP extends GraphicsProcessor {
     private Type type;
     public enum Type{
-        LINEAR
+        LINEAR,
+
+        RESIZE_ELLIPSE
     }
 
     public ResizeGP(Type type){
@@ -37,10 +44,24 @@ public class ResizeGP extends GraphicsProcessor {
         float width = getInt("width") > 0 ? getInt("width") : getInt("height") / scale;
         float height = getInt("height") > 0 ? getInt("height") : getInt("width") * scale;
 
-        if(type == Type.LINEAR)
-            Imgproc.resize(mat, resized, new Size(width, height),0, 0, Imgproc.INTER_LINEAR);
+        if(type == Type.LINEAR) {
+            Imgproc.resize(mat, resized, new Size(width, height), 0, 0, Imgproc.INTER_LINEAR);
+            data.put("mat", resized);
+        }
+        else if(type == Type.RESIZE_ELLIPSE){
+            List<RotatedRect> ellipses = (ArrayList<RotatedRect>)data.get("ellipses");
 
-        data.put("mat", resized);
+            // scale ellipses
+            for (int i = 0; i < ellipses.size(); i++) {
+                RotatedRect rect = ellipses.get(i);
+                rect = new RotatedRect(new Point(rect.center.x * (mat.width() / width), rect.center.y * (mat.height() / height)),
+                        new Size(rect.size.width * (mat.width() / width), rect.size.height * (mat.height() / height)), rect.angle);
+
+                ellipses.remove(i);
+                ellipses.add(i, rect);
+            }
+            data.put("ellipses", ellipses);
+        }
 
         return Status.PASSED;
     }

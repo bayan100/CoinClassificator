@@ -32,6 +32,7 @@ public class DrawEllipseAGP extends AsyncGraphicsProcessor {
         // and draw ellipse
         gp = new ResizeGP(ResizeGP.Type.LINEAR);
         gp.set("bitmap", bitmap.copy(bitmap.getConfig(), true));
+        gp.set("mat", gp.toMat((Bitmap)gp.getData().get("bitmap")));
         processors.add(gp);
         processors.add(new EllipseGP(EllipseGP.Type.DRAW));
 
