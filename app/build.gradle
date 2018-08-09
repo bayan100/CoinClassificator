@@ -25,6 +25,18 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    aaptOptions {
+        noCompress "tflite"
+        noCompress "lite"
+    }
+}
+
+repositories {
+    maven {
+        url 'https://google.bintray.com/tensorflow'
+    }
+    google()
 }
 
 dependencies {
@@ -34,4 +46,5 @@ dependencies {
     implementation 'com.android.support:design:27.1.1'
     implementation project(':openCVLibrary340dev')
     implementation 'com.android.support:support-v4:27.1.1'
+    implementation 'org.tensorflow:tensorflow-lite:1.9.0'
 }

@@ -56,8 +56,17 @@ public class GraphicsProcessor {
         data.put(key, value);
     }
 
+    public void setImage(Bitmap bitmap) {
+        data.put("bitmap", bitmap);
+        data.put("mat", toMat(bitmap));
+    }
+
     public void setParameter(String key, Object value){
         parameter.put(key, value);
+    }
+
+    public Object getParameter(String key){
+        return parameter.get(key);
     }
 
     protected float getFloat(String key){ return (Float)parameter.get(key); }

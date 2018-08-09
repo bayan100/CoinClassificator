@@ -1,5 +1,7 @@
 package com.hhu.yannick.coinclassificator.SQLite;
 
+import android.util.Log;
+
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
@@ -9,6 +11,8 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.Arrays;
 
+import static org.opencv.core.CvType.CV_8UC4;
+
 public class MatSerializer {
     public static byte[] matToBytes(Mat mat){
         if(mat.isContinuous()){
@@ -17,9 +21,11 @@ public class MatSerializer {
             int elemSize = (int) mat.elemSize();
             int type = mat.type();
 
+            Log.d("MAT", "type: " + type + ", rows: " + rows + ", cols: " + cols);
+
             byte[] bytes;
 
-            if( type == CvType.CV_32S || type == CvType.CV_32SC2 || type == CvType.CV_32SC3 || type == CvType.CV_16S) {
+            if( type == CvType.CV_32S || type == CvType.CV_32SC2 || type == CvType.CV_32SC3 || type == CvType.CV_16S ) {
                 int[] data = new int[cols * rows * elemSize];
                 mat.get(0, 0, data);
                 ByteBuffer buffer = ByteBuffer.allocate(Integer.SIZE / 8 * data.length);
@@ -43,7 +49,7 @@ public class MatSerializer {
                     buffer.putDouble(value);
                 bytes = buffer.array();
             }
-            else if( type == CvType.CV_8U ) {
+            else if( type == CvType.CV_8U || type == CV_8UC4) {
                 byte[] data = new byte[cols * rows * elemSize];
                 mat.get(0, 0, data);
                 bytes = data;
@@ -72,6 +78,8 @@ public class MatSerializer {
         int rows = fromByte(bytes, 4);
         int cols = fromByte(bytes, 8);
 
+        Log.d("MAT", "type: " + type + ", rows: " + rows + ", cols: " + cols);
+
         Mat mat = new Mat(rows, cols, type);
         ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, 12, bytes.length));
 
@@ -93,7 +101,7 @@ public class MatSerializer {
             db.get(data);
             mat.put(0,0, data);
         }
-        else if( type == CvType.CV_8U ) {
+        else if( type == CvType.CV_8U || type == CV_8UC4) {
             mat.put(0, 0, Arrays.copyOfRange(bytes, 12, bytes.length));
         }
         else {

@@ -105,8 +105,6 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
         accuracyText = view.findViewById(R.id.accuracyText);
         coinView = view.findViewById(R.id.coinView);
         progressBar = view.findViewById(R.id.pBar);
-
-        Log.d("FEATURE", "create");
     }
 
     public void putLoadedData(DatabaseManager databaseManager, Bitmap bitmap) {
@@ -122,15 +120,12 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
 
             // check if ellipse is already cached
             if (ellipse == null) {
-                Log.d("FEATURE", "" + (matcherSpinner != null));
-                Log.d("FEATURE", "" + matcherSpinner.getSelectedItem());
-                Log.d("FEATURE", "" + matcherSpinner.getSelectedItem().toString());
-                main = new EllipseAndFeatureAGP(bitmap, databaseManager,
+                main = new EllipseAndFeatureAGP(bitmap, databaseManager, getContext(),
                         detectorSpinner.getSelectedItem().toString(),
                         matcherSpinner.getSelectedItem().toString(),
                         this);
             } else {
-                main = new FeatureAGP(bitmap, databaseManager, ellipse,
+                main = new FeatureAGP(bitmap, databaseManager, getContext(), ellipse,
                         detectorSpinner.getSelectedItem().toString(),
                         matcherSpinner.getSelectedItem().toString(),
                         this);
@@ -151,19 +146,17 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
             String country = ((CoinData)main.result.get("coin")).country;
             countryText.setText(country);
         }
+        // main.result.get("ellipse")
 
         progressBar.setVisibility(View.INVISIBLE);
     }
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-        // skip the initial 2 calls
-        Log.d("FEATURE", "selected...");
     }
 
     @Override
     public void onNothingSelected(AdapterView<?> parent) {
-        Log.d("FEATURE", "nothing selected...");
     }
 
     @Override

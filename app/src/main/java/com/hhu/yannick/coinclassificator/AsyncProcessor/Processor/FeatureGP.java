@@ -1,17 +1,22 @@
 package com.hhu.yannick.coinclassificator.AsyncProcessor.Processor;
 
+import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Log;
 
 import com.hhu.yannick.coinclassificator.SQLite.CoinData;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 import com.hhu.yannick.coinclassificator.SQLite.FeatureData;
+import com.hhu.yannick.coinclassificator.SQLite.MatSerializer;
 
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.DMatch;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.Point;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.features2d.BFMatcher;
@@ -23,7 +28,12 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.xfeatures2d.SIFT;
 import org.opencv.xfeatures2d.SURF;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -43,54 +53,74 @@ public class FeatureGP extends GraphicsProcessor {
     }
 
     private DatabaseManager databaseManager;
-    private RotatedRect ellipse;
+    private Context context;
+    private String directory = null;
 
-    public FeatureGP(DetectorType detectorType, MatcherType matcherType, DatabaseManager databaseManager){
+    public FeatureGP(DetectorType detectorType, MatcherType matcherType, DatabaseManager databaseManager, Context context){
         this.detectorType = detectorType;
         this.matcherType = matcherType;
         this.databaseManager = databaseManager;
+        this.context = context;
 
         this.task = "Feature: " + detectorType.toString() + ", matcher: " + matcherType.toString();
     }
 
-    @Override
-    protected Status executeProcess() {
-        Log.d("KEYS", data.keySet().toString());
+    public FeatureGP(String directory, DetectorType detectorType, DatabaseManager databaseManager, Context context){
+        this.detectorType = detectorType;
+        this.databaseManager = databaseManager;
+        this.context = context;
+        this.directory = directory;
 
-        if(!data.containsKey("ellipses"))
-            return Status.FAILED;
-        if(!data.containsKey("mat") && data.containsKey("bitmap"))
-            data.put("mat", toMat((Bitmap) data.get("bitmap")));
-        else if(!data.containsKey("mat"))
-            return Status.FAILED;
-
-        // load the Coin-Features for the selected detector from the database
-        Map<CoinData, FeatureData> features = databaseManager.getFeaturesByType(detectorType.toString());
-
-        // generate the Features for the current Coin (slow!!!)
-        ellipse = ((ArrayList<RotatedRect>)data.get("ellipses")).get(0);
-
-        Log.d("ELLIPSE", ellipse.toString());
-        FeatureData featureData = generateFeatures();
-
-        // match against the coins
-        CoinData result = matchAgainstCoins(featureData, features);
-        data.put("coin", result);
-        return Status.PASSED;
+        this.task = "Generate Features: " + detectorType.toString();
     }
 
-    private FeatureData generateFeatures(){
-        Mat mat = (Mat)data.get("mat");
+    @Override
+    protected Status executeProcess() {
+        // generate Features from file
+        if (directory != null) {
+            generateCountry("/sdcard/Pictures/Testpictures/Flags/");
+            List<String> cou = databaseManager.getCountrys();
+            Log.d("LOAD", cou.toString());
+            generateBunch(directory);
+            Map<CoinData,FeatureData> cf = databaseManager.getFeaturesByType("SIFT");
+            for(CoinData c : cf.keySet())
+                Log.d("LOAD", c.country + ", " + c.value + ", " + cf.get(c).start + ", " + cf.get(c).length);
+            loadFeatures();
+            return Status.PASSED;
+        }
+        // classify by feature
+        else {
 
+            if (!data.containsKey("ellipses"))
+                return Status.FAILED;
+            if (!data.containsKey("mat") && data.containsKey("bitmap"))
+                data.put("mat", toMat((Bitmap) data.get("bitmap")));
+            else if (!data.containsKey("mat"))
+                return Status.FAILED;
+
+            // load the Coin-Features for the selected detector from the database
+            Map<CoinData, FeatureData> features = loadFeatures();
+
+            // generate the Features for the current Coin (slow!!!)
+            RotatedRect ellipse = ((ArrayList<RotatedRect>) data.get("ellipses")).get(0);
+            FeatureData featureData = generateFeatures((Mat)data.get("mat"), ellipse);
+
+            // match against the coins
+            CoinData result = matchAgainstCoins(featureData, features);
+            data.put("coin", result);
+            return Status.PASSED;
+        }
+    }
+
+    private FeatureData generateFeatures(Mat data){
+        return generateFeatures(data, new RotatedRect(new Point(data.size().width / 2, data.size().height / 2), data.size(), 0));
+    }
+
+    private FeatureData generateFeatures(Mat mat, RotatedRect ellipse){
         // generate a mask to lay on the image (the found ellipse)
         Mat mask = Mat.zeros(mat.size(), mat.type());
         Imgproc.ellipse(mask, ellipse, new Scalar(255,255,255), -1);
         MatOfKeyPoint keypoints = new MatOfKeyPoint();
-
-        Log.d("BP", mat.size().toString());
-        Core.bitwise_and(mat, mask, mat);
-        Log.d("BP", mat.size().toString());
-        data.put("bitmap", toBitmap(mat));
 
         // create the right detector
         Mat descriptors = new Mat();
@@ -107,6 +137,12 @@ public class FeatureGP extends GraphicsProcessor {
 
         // compute features
         detector.detectAndCompute(mat, mask, keypoints, descriptors);
+
+        // put them onto the bitmap
+        Features2d.drawKeypoints(mat, keypoints, mat);
+        data.put("mat", mat);
+        data.put("bitmap", toBitmap(mat));
+
         return new FeatureData(detectorType.toString(), keypoints, descriptors, mask);
     }
 
@@ -163,5 +199,200 @@ public class FeatureGP extends GraphicsProcessor {
 
         // return the ratio between "good" and bad matches
         return (double)found / matches.size();
+    }
+
+    private void generateCountry(String directory){
+        // lookup all files in the give directory
+        File folder = new File(directory);
+
+        // create the Feature-Type binary file if not already there
+        String binFile = "FLAGS.bin";
+        File bin = null;
+        File storage = context.getFilesDir();
+        for (File fileEntry : storage.listFiles())
+            if(fileEntry.getName().equals(binFile)) {
+                bin = fileEntry;
+                break;
+            }
+        if(bin == null)
+            bin = new File(storage, binFile);
+
+        if(bin.delete()) {
+            Log.d("SAVING", "done...");
+            bin = new File(storage, binFile);
+        }
+
+        for (File fileEntry : folder.listFiles()) {
+            String file = fileEntry.getName();
+            Bitmap bitmap = BitmapFactory.decodeFile(fileEntry.getAbsolutePath());
+
+            Mat mat = new Mat();
+            Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+            Utils.bitmapToMat(bmp32, mat);
+
+            Log.d("SAVING", "type: " + mat.type());
+
+            String country = file.substring(0, file.indexOf("."));
+
+            byte[] binary = MatSerializer.matToBytes(mat);
+
+            // append to binary file
+            try {
+                RandomAccessFile output = new RandomAccessFile(bin, "rw");
+                int lastByte = (int)output.length();
+                output.seek(lastByte);
+                try {
+                    output.write(binary);
+                } finally {
+                    output.close();
+
+                    // save the positions in the database
+                    Log.d("SAVING", "lastbyte: " + lastByte + ", to: " + (lastByte + binary.length));
+                    databaseManager.putCountry(country, lastByte, binary.length);
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void generateBunch(String directory){
+        // gather the countrys and coins
+        List<String> countrys = databaseManager.getCountrys();
+        Map<String, CoinData[]> coins = databaseManager.getCoins();
+
+        // lookup all files in the give directory
+        File folder = new File(directory);
+
+        // create the Feature-Type binary file if not already there
+        String binFile = detectorType.toString() + ".bin";
+        File bin = null;
+        File storage = context.getFilesDir();
+        for (File fileEntry : storage.listFiles())
+            if(fileEntry.getName().equals(binFile)) {
+                bin = fileEntry;
+                break;
+            }
+        if(bin == null)
+            bin = new File(storage, binFile);
+
+
+        if(bin.delete()) {
+            Log.d("SAVING", "done...");
+            bin = new File(storage, binFile);
+        }
+
+        Log.d("SAVING", bin.getAbsolutePath());
+
+        // generate requested Features for all given Coin-Files
+        for (File fileEntry : folder.listFiles()) {
+            String file = fileEntry.getName();
+            Mat fileMat = loadGrayImage(fileEntry.getAbsolutePath());
+            FeatureData feature = generateFeatures(fileMat);
+
+            // read the Country and Coin-type from the filename
+            String[] tmp = file.split("_");
+            String country = tmp[0];
+            int value = Integer.parseInt(tmp[1].substring(0, tmp[1].indexOf(".")));
+
+            //Log.d("SIFT","size: keypoints: " + feature.keypoints.size() + ", desc: " + feature.descriptor.size() + ", mask: " + feature.mask.size());
+            //Log.d("SIFT", "bytes: keypoints: " + MatSerializer.matToBytes(feature.keypoints).length + ", desc: " + MatSerializer.matToBytes(feature.descriptor).length + ", mask: " + MatSerializer.matToBytes(feature.mask).length);
+            // if country not already there, add it
+            /*if(!countrys.contains(country)){
+                countrys.add(country);
+                coins.put(country, new CoinData[3]);
+                databaseManager.putCountry(country);
+            }*/
+            // if coin not there add as well
+            if(coins.get(country) == null || coins.get(country)[value] == null){
+                databaseManager.putCoin(new CoinData(value, country));
+            }
+
+            // serialize data
+            byte[] binary = MatSerializer.matToBytes(feature.descriptor);
+
+            // append to binary file
+            try {
+                RandomAccessFile output = new RandomAccessFile(bin, "rw");
+                int lastByte = (int)output.length();
+                output.seek(lastByte);
+                try {
+                    output.write(binary);
+                } finally {
+                    output.close();
+
+                    // save the positions in the database
+                    Log.d("SAVING", "lastbyte: " + lastByte + ", to: " + (lastByte + binary.length));
+                    feature.start = lastByte;
+                    feature.length = binary.length;
+                    databaseManager.putFeature(feature, new CoinData(value, country));
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+            // save to database
+            //databaseManager.putFeature(feature, new CoinData(value, country));
+            Log.d("FEATURE", fileEntry.getName());
+        }
+    }
+
+    private Mat loadGrayImage(String name){
+        Bitmap bitmap = BitmapFactory.decodeFile(name);
+
+        Mat data = new Mat();
+        Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        Utils.bitmapToMat(bmp32, data);
+        Imgproc.cvtColor(data, data, Imgproc.COLOR_RGB2GRAY);
+        return data;
+    }
+
+    private Map<CoinData, FeatureData> loadFeatures(){
+        // load the Feature-Type binary file
+        String binFile = detectorType.toString() + ".bin";
+        File bin = null;
+        File storage = context.getFilesDir();
+
+        // find it
+        for (File fileEntry : storage.listFiles())
+            if(fileEntry.getName().equals(binFile)) {
+                bin = fileEntry;
+                break;
+            }
+
+        // load the information about the binarys from the database
+        Map<CoinData, FeatureData> featureDataMap = databaseManager.getFeaturesByType(detectorType.toString());
+
+        RandomAccessFile output = null;
+        try {
+            // open and read from binary file
+            output = new RandomAccessFile(bin, "rw");
+            for (CoinData c : featureDataMap.keySet()) {
+                FeatureData featureData = featureDataMap.get(c);
+                byte[] binary = new byte[featureData.length];
+
+                    output.seek(featureData.start);
+                    try {
+                        Log.d("LOAD", "start: " + featureData.start + ", len: " + featureData.length);
+                        output.read(binary, 0, binary.length);
+                    } finally {
+                        // put the descriptor to the features
+                        Mat mat = MatSerializer.matFromBytes(binary);
+                        featureData.descriptor = mat;
+                    }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            try {
+                // close the file
+                if (output != null)
+                    output.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return featureDataMap;
     }
 }

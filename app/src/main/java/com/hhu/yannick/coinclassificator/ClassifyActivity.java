@@ -109,6 +109,14 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    protected void onDestroy() {
+        // close database connection
+        databaseManager.close();
+
+        super.onDestroy();
+    }
+
     /**
      * A {@link FragmentPagerAdapter} that returns a fragment corresponding to
      * one of the sections/tabs/pages.
@@ -147,7 +155,7 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
         Log.d("EXE", "initialLoad");
 
         // start the first task execution
-        machineLearningFragment.putLoadedData(databaseManager, databaseLoader.bitmap);
+        machineLearningFragment.putLoadedData(databaseManager, databaseLoader.bitmap, this);
         featureFragment.putLoadedData(databaseManager, databaseLoader.bitmap);
 
         // first task so execute at first

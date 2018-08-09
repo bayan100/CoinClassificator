@@ -1,23 +1,22 @@
 package com.hhu.yannick.coinclassificator.AsyncProcessor;
 
-import android.content.Context;
+import android.app.Activity;
 import android.graphics.Bitmap;
+import android.util.Log;
 
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.BlurGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.ContourGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.EllipseGP;
-import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.FeatureGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.GraphicsProcessor;
-import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.GrayScaleGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.ResizeGP;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
+import com.hhu.yannick.coinclassificator.Tensorflow.TensorflowProcessor;
 
-import org.opencv.core.RotatedRect;
-
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 
-public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
-    public EllipseAndFeatureAGP(Bitmap bitmap, DatabaseManager databaseManager, Context context, String detector, String matcher, OnTaskCompleted listener)
+public class EllipseAndTensorflowAGP extends AsyncGraphicsProcessor {
+    public EllipseAndTensorflowAGP(Bitmap bitmap, DatabaseManager databaseManager, Activity activity, OnTaskCompleted listener)
     {
         super(listener);
 
@@ -32,28 +31,21 @@ public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
         processors.add(new ContourGP(ContourGP.Type.FILTER));
         processors.add(new EllipseGP(EllipseGP.Type.FIND));
 
-        GrayScaleGP gsp = new GrayScaleGP();
-        gsp.setImage(bitmap.copy(bitmap.getConfig(), true));
-        processors.add(gsp);
-        processors.add(new ResizeGP(ResizeGP.Type.RESIZE_ELLIPSE));
+        TensorflowProcessor tf = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity);
+
+        gp = new ResizeGP(ResizeGP.Type.RESIZE_ELLIPSE);
+        gp.setImage(bitmap.copy(bitmap.getConfig(), true));
+        processors.add(gp);
         processors.add(new ResizeGP(ResizeGP.Type.CROP));
-        FeatureGP fp = new FeatureGP(
-                getEnum(FeatureGP.DetectorType.class, detector),
-                getEnum(FeatureGP.MatcherType.class, matcher),
-                databaseManager, context);
-        processors.add(fp);
+        gp = new ResizeGP(ResizeGP.Type.LINEAR);
+        gp.setParameter("width", (Integer)tf.getParameter("tensorImageWidth"));
+        gp.setParameter("height", (Integer)tf.getParameter("tensorImageHeight"));
+        Log.d("TENSOR", tf.getParameter("tensorImageWidth") + ", " + gp.getParameter("width"));
+        processors.add(gp);
+
+        //tf.set("bitmap", bitmap.copy(bitmap.getConfig(), true));
+        processors.add(tf);
 
         task = processors;
-    }
-
-    private static <T extends Enum<T>> T getEnum(Class<T> c, String string) {
-        if( c != null && string != null ) {
-            try {
-                return Enum.valueOf(c, string.trim().replaceAll("\\s","").toUpperCase());
-            } catch(IllegalArgumentException ex) {
-                ex.printStackTrace();
-            }
-        }
-        return null;
     }
 }

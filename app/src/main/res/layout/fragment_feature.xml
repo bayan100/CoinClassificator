@@ -115,4 +115,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/countryText" />
 
+    <TextView
+        android:id="@+id/valueText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:text="Value"
+        app:layout_constraintStart_toEndOf="@+id/countryText"
+        app:layout_constraintTop_toBottomOf="@+id/coinView" />
+
 </android.support.constraint.ConstraintLayout>

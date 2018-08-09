@@ -8,6 +8,7 @@ import android.util.Log;
 
 import org.opencv.core.MatOfKeyPoint;
 
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -99,12 +100,26 @@ public class DatabaseManager {
 
         // put the feature data into the database
         for (FeatureData feature: featureData) {
+            // create the binary first
             ContentValues values = new ContentValues();
+            values.put("Start", feature.start);
+            values.put("Length", feature.length);
+            database.insert("Binary",null, values);
+
+            // directly find the id
+            sql = "SELECT id FROM Binary WHERE " +
+                    "Binary.Start = " + feature.start + " AND " +
+                    "Binary.Length = " + feature.length + ";";
+            cursor = database.rawQuery(sql, null);
+            cursor.moveToFirst();
+            int binId = cursor.getInt(0);
+            cursor.close();
+
+            // insert Feature
+            values = new ContentValues();
             values.put("Type", feature.type);
             values.put("Coin_id", coinId);
-            values.put("Keypoints", MatSerializer.matToBytes(feature.keypoints));
-            values.put("Descriptor", MatSerializer.matToBytes(feature.descriptor));
-            values.put("Mask", MatSerializer.matToBytes(feature.mask));
+            values.put("Binary_id", binId);
             database.insert("Feature", null, values);
         }
     }
@@ -120,42 +135,48 @@ public class DatabaseManager {
         int coinId = cursor.getInt(0);
         cursor.close();
 
-        // put the feature data into the database
+        // create the binary first
         ContentValues values = new ContentValues();
+        values.put("Start", feature.start);
+        values.put("Length", feature.length);
+        database.insert("Binary",null, values);
+
+        // directly find the id
+        sql = "SELECT id FROM Binary WHERE " +
+                "Binary.Start = " + feature.start + " AND " +
+                "Binary.Length = " + feature.length + ";";
+        cursor = database.rawQuery(sql, null);
+        cursor.moveToFirst();
+        int binId = cursor.getInt(0);
+        cursor.close();
+
+        // insert Feature
+        values = new ContentValues();
         values.put("Type", feature.type);
         values.put("Coin_id", coinId);
-        values.put("Keypoints", MatSerializer.matToBytes(feature.keypoints));
-        values.put("Descriptor", MatSerializer.matToBytes(feature.descriptor));
-        values.put("Mask", MatSerializer.matToBytes(feature.mask));
+        values.put("Binary_id", binId);
         database.insert("Feature", null, values);
-
     }
 
     public Map<CoinData, FeatureData> getFeaturesByType(String type){
         Map<CoinData, FeatureData> data = new HashMap<>();
 
-        String sql = "SELECT Country.Name, Coin.Value, Feature.Keypoints, Feature.Descriptor, Feature.Mask " +
-                "FROM Feature, Coin, Country WHERE " +
+        String sql = "SELECT Country.Name, Coin.Value, Binary.Start, Binary.Length " +
+                "FROM Feature, Coin, Country, Binary WHERE " +
                 "Feature.Coin_id = Coin.id AND " +
                 "Coin.Country_id = Country.id AND " +
-                "Type = '" + type + "';";
+                "Feature.Binary_id = Binary.id AND " +
+                "Feature.Type = '" + type + "';";
         Cursor cursor = database.rawQuery(sql, null);
         cursor.moveToFirst();
-        int c = 0;
-        while (!cursor.isAfterLast() &&  c < 10) {
-
-            //Log.d("SQL", "pos: " + cursor.getPosition());
-
-            //Log.d("SQL", cursor.getColumnNames()[0] + ": " + cursor.getColumnIndex(cursor.getColumnNames()[0]));
+        while (!cursor.isAfterLast()) {
 
             FeatureData feature = new FeatureData(type);
-            feature.keypoints = new MatOfKeyPoint(MatSerializer.matFromBytes(cursor.getBlob(2)));
-            feature.descriptor = MatSerializer.matFromBytes(cursor.getBlob(3));
-            feature.mask = MatSerializer.matFromBytes(cursor.getBlob(4));
+            feature.start = cursor.getInt(2);
+            feature.length = cursor.getInt(3);
             CoinData coinData = new CoinData(cursor.getInt(1), cursor.getString(0));
 
             data.put(coinData, feature);
-            c++;
             cursor.moveToNext();
         }
         cursor.close();
@@ -172,7 +193,7 @@ public class DatabaseManager {
         int countryId = cursor.getInt(0);
         cursor.close();
 
-        // put the feature data into the database
+        // put the coin data into the database
         ContentValues values = new ContentValues();
         values.put("Country_id", countryId);
         values.put("Value", coinData.value);
@@ -193,9 +214,27 @@ public class DatabaseManager {
 
         return data;
     }
-    public void putCountry(String country){
+    public void putCountry(String country, int binStart, int binLength){
+        // create the binary first
         ContentValues values = new ContentValues();
+        values.put("Start", binStart);
+        values.put("Length", binLength);
+        database.insert("Binary",null, values);
+
+        // directly find the id
+        String sql = "SELECT id FROM Binary WHERE " +
+                "Binary.Start = " + binStart + " AND " +
+                "Binary.Length = " + binLength + ";";
+        Cursor cursor = database.rawQuery(sql, null);
+        cursor.moveToFirst();
+        int binId = cursor.getInt(0);
+        cursor.close();
+
+        Log.d("SQL", country + ", binId: " + binId);
+
+        values = new ContentValues();
         values.put("Name", country);
+        values.put("Binary_id", binId);
         database.insert("Country", null, values);
     }
 }
