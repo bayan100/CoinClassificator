@@ -23,6 +23,7 @@ import com.hhu.yannick.coinclassificator.AsyncProcessor.AsyncGraphicsProcessor;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.EllipseAndFeatureAGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.FeatureAGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.OnTaskCompleted;
+import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.FeatureGP;
 import com.hhu.yannick.coinclassificator.SQLite.CoinData;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 
@@ -35,14 +36,18 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
     private Spinner detectorSpinner;
     private Spinner matcherSpinner;
     private TextView countryText;
+    private TextView valueText;
     private TextView accuracyText;
     private ImageView coinView;
+    private ImageView flagView;
     private ProgressBar progressBar;
 
     private DatabaseManager databaseManager;
     private Bitmap bitmap;
     private AsyncGraphicsProcessor main;
     private boolean loaded;
+    private FeatureGP.DetectorType detectorType = FeatureGP.DetectorType.SIFT;
+    private FeatureGP.MatcherType matcherType = FeatureGP.MatcherType.BRUTEFORCE;
 
     // cached variables
     private RotatedRect ellipse;
@@ -102,8 +107,10 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
 
         // gather Views
         countryText = view.findViewById(R.id.countryText);
+        valueText = view.findViewById(R.id.valueText);
         accuracyText = view.findViewById(R.id.accuracyText);
         coinView = view.findViewById(R.id.coinView);
+        flagView = view.findViewById(R.id.flagView);
         progressBar = view.findViewById(R.id.pBar);
     }
 
@@ -138,21 +145,41 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
     @Override
     public void onTaskCompleted() {
         // when task finished display information
+        if (main.result != null) {
+            coinView.setImageBitmap((Bitmap) main.result.get("bitmap"));
+            if (main.result.containsKey("coin")) {
+                String country = ((CoinData) main.result.get("coin")).country;
+                String value = CoinData.valueToString(((CoinData) main.result.get("coin")).value);
+                countryText.setText(country);
+                valueText.setText(value);
 
-
-        coinView.setImageBitmap((Bitmap)main.result.get("bitmap"));
-        // DEBUG
-        if(main.result.containsKey("coin")) {
-            String country = ((CoinData)main.result.get("coin")).country;
-            countryText.setText(country);
+                // get the corresponding flag
+                if(main.result.containsKey("flag"))
+                    flagView.setImageBitmap((Bitmap) main.result.get("flag"));
+            }
+            // main.result.get("ellipse")
         }
-        // main.result.get("ellipse")
-
         progressBar.setVisibility(View.INVISIBLE);
     }
 
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+        switch (parent.getId()){
+            case R.id.descriptionSpinner:
+                FeatureGP.DetectorType dt = EllipseAndFeatureAGP.getEnum(FeatureGP.DetectorType.class, detectorSpinner.getSelectedItem().toString());
+                if(detectorType != dt) {
+                    startExecution();
+                    detectorType = dt;
+                }
+                break;
+            case R.id.matcherSpinner:
+                FeatureGP.MatcherType mt = EllipseAndFeatureAGP.getEnum(FeatureGP.MatcherType.class, matcherSpinner.getSelectedItem().toString());
+                if(matcherType != mt) {
+                    startExecution();
+                    matcherType = mt;
+                }
+                break;
+        }
     }
 
     @Override

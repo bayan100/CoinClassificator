@@ -11,9 +11,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
 
     public DatabaseHelper(Context context){
-        super(context, "Coins.db", null, 1);
+        super(context, "CoinDatabase.db", null, 1);
 
-        Log.d("SQL", "path: " + context.getDatabasePath("Coins.db").getAbsolutePath());
+        Log.d("SQL", "path: " + context.getDatabasePath("CoinDatabase.db").getAbsolutePath());
 
         String path = context.getDatabasePath("Coins.db").getAbsolutePath();
         path = path.substring(0, path.lastIndexOf('/'));

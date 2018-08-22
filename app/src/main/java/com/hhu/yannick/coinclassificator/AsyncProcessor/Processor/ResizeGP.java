@@ -2,6 +2,7 @@ package com.hhu.yannick.coinclassificator.AsyncProcessor.Processor;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.util.Log;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -102,6 +103,7 @@ public class ResizeGP extends GraphicsProcessor {
                 mat.copyTo(out, mask);
 
                 // crop up to the border
+                Log.d("ELLIPSE", ellipse.toString());
                 mat = new Mat(out, ellipse.boundingRect());
 
                 // also 'crop' the ellipse

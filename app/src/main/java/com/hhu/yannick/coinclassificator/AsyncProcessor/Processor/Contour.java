@@ -18,11 +18,11 @@ import java.util.List;
 public class Contour implements Comparable {
     MatOfPoint data;
     Point[] points;
-    MatOfPoint convexContour;
+    double[] endDirections;
 
     Point center;
     double area;
-    int centerLinePoint;
+    private int centerLinePoint;
 
     Contour(MatOfPoint data) {
         this.data = data;
@@ -55,7 +55,7 @@ public class Contour implements Comparable {
     void calculateArea(int nBasePoints){
         // calculate the area under the contour with accurate trapeze shape
         // reset area
-        area = 0;
+        double area = 0;
 
         // base line from both endpoints
         double sy = points[points.length - 1].y - points[0].y;
@@ -124,8 +124,14 @@ public class Contour implements Comparable {
         }
 
         // save the accurate area
-        if(!Double.isNaN(area))
-            this.area = Math.abs(area);
+        if(!Double.isNaN(area)) {
+            // compare to area estimate. If new area is much bigger than estimate we got a
+            // unwanted cluster that needs to be removed
+            if(this.area * 1 < area)
+                this.area = -1;
+            else
+                this.area = Math.abs(area);
+        }
         else
             this.area = -1;
     }
@@ -184,13 +190,16 @@ public class Contour implements Comparable {
         points = tmp.toArray(new Point[tmp.size()]);
     }
 
-    int[] getEndDirection(){
+    public void calculateEndDirections() {
         // simple linear regression on the last n points
         int n = 5;
 
+        endDirections = new double[2];
+
+        // startpoint
         // find x- and y-mean
         double xMean = 0, yMean = 0;
-        for (int i = points.length - n; i < points.length; i++) {
+        for (int i = 0; i < points.length && i < n; i++) {
             xMean += points[i].x;
             yMean += points[i].y;
         }
@@ -198,19 +207,77 @@ public class Contour implements Comparable {
         yMean /= n;
 
         double bx2 = 0, bxy = 0;
-        for (int i = points.length - n; i < points.length; i++) {
+        for (int i = 0; i < points.length && i < n; i++) {
             bxy += (points[i].x - xMean) * (points[i].y - yMean);
             bx2 += (points[i].x - xMean) * (points[i].x - xMean);
         }
         double m = bxy / bx2;
+        endDirections[0] = m;
 
-        // convert to direction
-        int direction = (Math.abs(m) < 1 ? 2 : 0);
-        direction += (direction == 2 ? ((points[points.length - n].x <= points[points.length - 1].x) ? 0 : 1)
-                : ((points[points.length - n].y <= points[points.length - 1].y) ? 0 : 1));
-        direction++; // + UNDEFINED
+        // endpoint
+        xMean = 0;
+        yMean = 0;
+        for (int i = points.length - n; i < points.length; i++) {
+            xMean += points[i].x;
+            yMean += points[i].y;
+        }
+        xMean /= n;
+        yMean /= n;
 
-        return new int[] {(int)points[points.length - 1].x, (int)points[points.length - 1].y, direction};
+        bx2 = 0;
+        bxy = 0;
+        for (int i = points.length - n; i < points.length; i++) {
+            bxy += (points[i].x - xMean) * (points[i].y - yMean);
+            bx2 += (points[i].x - xMean) * (points[i].x - xMean);
+        }
+        m = bxy / bx2;
+        endDirections[1] = m;
+    }
+
+    public boolean tryMerge(Contour item, double maxDistance, double mTolerance){
+        // try out each endpoint combination
+        for (int i = 0; i < 4; i++) {
+            int ind1 = (i % 2 == 0 ? 0 : points.length - 1);
+            int ind2 = (i / 2 == 0 ? 0 : item.points.length - 1);
+
+            double d = dist(points[ind1], item.points[ind2]);
+            // found 2 close contours
+            if(d < maxDistance){
+                // only merge if slope in tolerance
+                if(Math.abs(endDirections[i % 2]) - mTolerance < Math.abs(item.endDirections[i / 2]) &&
+                        Math.abs(item.endDirections[i / 2]) < Math.abs(endDirections[i % 2]) + mTolerance &&
+                        Math.signum(endDirections[i % 2]) == Math.signum(item.endDirections[i / 2])){
+                    // merge with right order
+                    ArrayList<Point> tmp = new ArrayList<>();
+                    if(ind1 == 0) {
+                        Collections.addAll(tmp, item.points);
+                        if(ind2 == 0)
+                            Collections.reverse(tmp);
+                        Collections.addAll(tmp, points);
+                    }else {
+                        Collections.addAll(tmp, points);
+                        if(ind2 == 0)
+                            Collections.addAll(tmp, item.points);
+                        else {
+                            ArrayList<Point> tmp2 = new ArrayList<>();
+                            Collections.addAll(tmp2, item.points);
+                            Collections.reverse(tmp2);
+                            tmp.addAll(tmp2);
+                        }
+                    }
+
+                    // to mat and point array
+                    MatOfPoint matOfPoint = new MatOfPoint();
+                    matOfPoint.fromList(tmp);
+                    data = matOfPoint;
+
+                    points = tmp.toArray(new Point[tmp.size()]);
+
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private double dist(Point p1, Point p2) {

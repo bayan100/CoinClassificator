@@ -5,6 +5,7 @@ import android.util.Log;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
@@ -36,18 +37,26 @@ public class EllipseGP extends GraphicsProcessor{
 
     private Status find() {
         ArrayList<Contour> contours = null;
-        if(data.containsKey("contours"))
+        Point approximateCenter = null;
+        if(data.containsKey("contours") && data.containsKey("approximateCenter")) {
             contours = (ArrayList<Contour>) data.get("contours");
+            approximateCenter = (Point)data.get("approximateCenter");
+        }
         else
             return Status.FAILED;
 
         ArrayList<RotatedRect> ellipses = new ArrayList<>(contours.size());
 
-        for (int i = 0; i < contours.size(); i++) {
+        // fit ellipses for 5 contours
+        for (int i = 0; i < 5 && i < contours.size(); i++) {
             MatOfPoint2f dst = new MatOfPoint2f();
             contours.get(i).data.convertTo(dst, CvType.CV_32FC2);
+            RotatedRect e = Imgproc.fitEllipse(dst);
 
-            ellipses.add(Imgproc.fitEllipse(dst));
+            // check if ellipse contains the centerpoint
+            // (only consider if it is a good measurement, meaning we had enough contours)
+            if(e.boundingRect().contains(approximateCenter) || contours.size() < 5)
+                ellipses.add(e);
         }
 
         // check if the first Ellipses have similar center (indicating one is the outer and the other the inner ring

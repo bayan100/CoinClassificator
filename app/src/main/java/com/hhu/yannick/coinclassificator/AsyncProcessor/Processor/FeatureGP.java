@@ -22,6 +22,7 @@ import org.opencv.core.Scalar;
 import org.opencv.features2d.BFMatcher;
 import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.Feature2D;
+import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
 import org.opencv.features2d.ORB;
 import org.opencv.imgproc.Imgproc;
@@ -62,6 +63,9 @@ public class FeatureGP extends GraphicsProcessor {
         this.databaseManager = databaseManager;
         this.context = context;
 
+        parameter.put("nFeaturesMax", -1);
+        parameter.put("nFeaturesMin", -1);
+
         this.task = "Feature: " + detectorType.toString() + ", matcher: " + matcherType.toString();
     }
 
@@ -71,6 +75,9 @@ public class FeatureGP extends GraphicsProcessor {
         this.context = context;
         this.directory = directory;
 
+        parameter.put("nFeaturesMax", 256);
+        parameter.put("nFeaturesMin", 128);
+
         this.task = "Generate Features: " + detectorType.toString();
     }
 
@@ -78,19 +85,13 @@ public class FeatureGP extends GraphicsProcessor {
     protected Status executeProcess() {
         // generate Features from file
         if (directory != null) {
-            generateCountry("/sdcard/Pictures/Testpictures/Flags/");
-            List<String> cou = databaseManager.getCountrys();
-            Log.d("LOAD", cou.toString());
-            generateBunch(directory);
-            Map<CoinData,FeatureData> cf = databaseManager.getFeaturesByType("SIFT");
-            for(CoinData c : cf.keySet())
-                Log.d("LOAD", c.country + ", " + c.value + ", " + cf.get(c).start + ", " + cf.get(c).length);
-            loadFeatures();
+            //generateCountry("/sdcard/Pictures/Testpictures/flags/");
+            //generateBunch(directory);
+            //loadFeatures();
             return Status.PASSED;
         }
         // classify by feature
         else {
-
             if (!data.containsKey("ellipses"))
                 return Status.FAILED;
             if (!data.containsKey("mat") && data.containsKey("bitmap"))
@@ -108,6 +109,7 @@ public class FeatureGP extends GraphicsProcessor {
             // match against the coins
             CoinData result = matchAgainstCoins(featureData, features);
             data.put("coin", result);
+            loadFlag(result.country);
             return Status.PASSED;
         }
     }
@@ -126,20 +128,65 @@ public class FeatureGP extends GraphicsProcessor {
         Mat descriptors = new Mat();
         Feature2D detector = null;
         switch (detectorType){
-            case SIFT: //detector = SIFT.create(256, 3, 0.04, 10, 1.6);
-                detector = SIFT.create();
+            case SIFT:
+                // create according to maximum number of features
+                if(getInt("nFeaturesMax") > 0)
+                    detector = SIFT.create(getInt("nFeaturesMax"), 3, 0.04, 10, 1.6);
+                else
+                    detector = SIFT.create();
+
+                // compute features
+                detector.detectAndCompute(mat, mask, keypoints, descriptors);
+                // draw features on bitmap
+                Features2d.drawKeypoints(mat, keypoints, mat);
                 break;
-            case SURF: detector = SURF.create();
+
+            case SURF:
+                if(getInt("nFeaturesMax") > 0) {
+                    int nMax = getInt("nFeaturesMax"), nMin = getInt("nFeaturesMin");
+                    int lowerHessianThreshold = 0, higherHessianThreshold = 800;
+                    int hessianThreshold = (higherHessianThreshold - lowerHessianThreshold) / 2;
+                    do {
+                        detector = SURF.create(hessianThreshold, 4, 3, false, false);
+                        detector.detectAndCompute(mat, mask, keypoints, descriptors);
+
+                        Log.d("SURF", "thresh: " + hessianThreshold + ", desc: " + keypoints.size().height);
+
+                        // modify the threshold to get into the right feature range
+                        // binary search on the threshold
+                        if(keypoints.size().height > nMax) {
+                            lowerHessianThreshold = hessianThreshold;
+                            higherHessianThreshold *= 2;
+                        }
+                        else if(keypoints.size().height < nMin) {
+                            higherHessianThreshold = hessianThreshold;
+                        }
+                        hessianThreshold = (higherHessianThreshold - lowerHessianThreshold) / 2;
+                    } while ((keypoints.size().height > nMax || keypoints.size().height < nMin)
+                             && (hessianThreshold > 100 && hessianThreshold < 10000));
+                }
+                else {
+                    detector = SURF.create(200, 4, 3, false, false);
+                    detector.detectAndCompute(mat, mask, keypoints, descriptors);
+                }
+                // draw keypoints
+                Features2d.drawKeypoints(mat, keypoints, mat, new Scalar(255, 255, 0), 4);
+
                 break;
-            case ORB: detector = ORB.create();
+            case ORB:
+                if(getInt("nFeaturesMax") > 0)
+                    detector = ORB.create(getInt("nFeaturesMax"), 1.2f, 8, 31,
+                    0, 2, ORB.HARRIS_SCORE, 31,  20);
+                else
+                    detector = ORB.create();
+                detector.detectAndCompute(mat, mask, keypoints, descriptors);
+                // draw keypoints
+                Features2d.drawKeypoints(mat, keypoints, mat);
                 break;
         }
 
-        // compute features
-        detector.detectAndCompute(mat, mask, keypoints, descriptors);
 
         // put them onto the bitmap
-        Features2d.drawKeypoints(mat, keypoints, mat);
         data.put("mat", mat);
         data.put("bitmap", toBitmap(mat));
 
@@ -151,9 +198,17 @@ public class FeatureGP extends GraphicsProcessor {
         // create the right matcher
         DescriptorMatcher matcher = null;
         switch (matcherType){
-            case BRUTEFORCE: matcher = BFMatcher.create();
+            case BRUTEFORCE:
+                if(input.type.equals("ORB"))
+                    matcher = BFMatcher.create(BFMatcher.BRUTEFORCE_HAMMING, true);
+                else
+                    matcher = BFMatcher.create();
                 break;
-            case FLANNBASED: matcher = DescriptorMatcher.create(DescriptorMatcher.FLANNBASED);
+            case FLANNBASED:
+                if(input.type.equals("ORB"))
+                    matcher = BFMatcher.create(BFMatcher.BRUTEFORCE_HAMMING, true);
+                else
+                    matcher = DescriptorMatcher.create(DescriptorMatcher.FLANNBASED);
                 break;
         }
 
@@ -161,8 +216,11 @@ public class FeatureGP extends GraphicsProcessor {
         TreeMap<Double, CoinData> result = new TreeMap<>();
         for (CoinData cd : set.keySet()){
             double score = match(input, set.get(cd), matcher);
-            Log.d("MATCH", "Country: " + cd.country + ", value: " + cd.value + " -> score: " + score);
             result.put(score, cd);
+        }
+        for (Double d : result.keySet()) {
+            CoinData cd = result.get(d);
+            Log.d("MATCH", "Country: " + cd.country + ", value: " + cd.value + " -> score: " + d);
         }
 
         // return the highest scoring Coin
@@ -174,8 +232,16 @@ public class FeatureGP extends GraphicsProcessor {
         MatOfDMatch match = new MatOfDMatch();
         matcher.match(input.descriptor, feature.descriptor, match);
 
-        Log.d("MATCH", "ind: " + input.descriptor.size() + ", fd: " +feature.descriptor.size());
-                Log.d("MATCH", "size: " + match.size().toString());
+        /*
+        // calculate the total distance per keypoint
+        double total = 0;
+        List<DMatch> matches = match.toList();
+        for (int i = 0; i < matches.size(); i++) {
+            total += matches.get(i).distance;
+        }
+        total /= matches.size();
+        return total;*/
+
 
         double maxDist = 0;
         double minDist = Double.MAX_VALUE;
@@ -194,8 +260,6 @@ public class FeatureGP extends GraphicsProcessor {
             if (matches.get(i).distance <= 2 * minDist)
                 found++;
         }
-
-        Log.d("MATCH", "found: " + found);
 
         // return the ratio between "good" and bad matches
         return (double)found / matches.size();
@@ -293,20 +357,26 @@ public class FeatureGP extends GraphicsProcessor {
             // read the Country and Coin-type from the filename
             String[] tmp = file.split("_");
             String country = tmp[0];
-            int value = Integer.parseInt(tmp[1].substring(0, tmp[1].indexOf(".")));
-
-            //Log.d("SIFT","size: keypoints: " + feature.keypoints.size() + ", desc: " + feature.descriptor.size() + ", mask: " + feature.mask.size());
-            //Log.d("SIFT", "bytes: keypoints: " + MatSerializer.matToBytes(feature.keypoints).length + ", desc: " + MatSerializer.matToBytes(feature.descriptor).length + ", mask: " + MatSerializer.matToBytes(feature.mask).length);
-            // if country not already there, add it
-            /*if(!countrys.contains(country)){
-                countrys.add(country);
-                coins.put(country, new CoinData[3]);
-                databaseManager.putCountry(country);
-            }*/
-            // if coin not there add as well
-            if(coins.get(country) == null || coins.get(country)[value] == null){
-                databaseManager.putCoin(new CoinData(value, country));
+            int value, version = 0;
+            if(tmp.length == 2)
+                value = Integer.parseInt(tmp[1].substring(0, tmp[1].indexOf(".")));
+            else {
+                value = Integer.parseInt(tmp[1]);
+                version = Integer.parseInt(tmp[2].substring(0, tmp[2].indexOf(".")));
             }
+
+            // if coin not there add as well
+            boolean found = false;
+            if(coins.get(country) != null){
+                for (int i = 0; i < coins.get(country).length; i++) {
+                    if(coins.get(country)[i].value == value && coins.get(country)[i].version == version){
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if(!found)
+                databaseManager.putCoin(new CoinData(value, version, country));
 
             // serialize data
             byte[] binary = MatSerializer.matToBytes(feature.descriptor);
@@ -325,7 +395,7 @@ public class FeatureGP extends GraphicsProcessor {
                     Log.d("SAVING", "lastbyte: " + lastByte + ", to: " + (lastByte + binary.length));
                     feature.start = lastByte;
                     feature.length = binary.length;
-                    databaseManager.putFeature(feature, new CoinData(value, country));
+                    databaseManager.putFeature(feature, new CoinData(value, version, country));
                 }
             }catch (Exception e){
                 e.printStackTrace();
@@ -394,5 +464,51 @@ public class FeatureGP extends GraphicsProcessor {
             }
         }
         return featureDataMap;
+    }
+
+    private void loadFlag(String country){
+        String binFile = "FLAGS.bin";
+        File bin = null;
+        File storage = context.getFilesDir();
+
+        // find it
+        for (File fileEntry : storage.listFiles())
+            if(fileEntry.getName().equals(binFile)) {
+                bin = fileEntry;
+                break;
+            }
+
+        // load the information about the binarys from the database
+        int[] binSL = databaseManager.getCountryFlag(country);
+        Mat flag = null;
+        RandomAccessFile output = null;
+        try {
+            // open and read from binary file
+            output = new RandomAccessFile(bin, "rw");
+
+                byte[] binary = new byte[binSL[1]];
+
+                output.seek(binSL[0]);
+                try {
+                    output.read(binary, 0, binary.length);
+                } finally {
+                    // convert flag
+                    flag = MatSerializer.matFromBytes(binary);
+                }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            try {
+                // close the file
+                if (output != null)
+                    output.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if(flag != null)
+            data.put("flag", toBitmap(flag));
     }
 }

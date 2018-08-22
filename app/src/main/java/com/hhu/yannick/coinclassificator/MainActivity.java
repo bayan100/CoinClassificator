@@ -369,6 +369,14 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
     public void onTakePhotoButtonClicked() {
 
+        // wait a little until phone has stabilised after pressing capture button
+        try {
+            Thread.sleep(300);
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+
         FileOutputStream outputPhoto = null;
         String tempFileName = "temp";
         try {

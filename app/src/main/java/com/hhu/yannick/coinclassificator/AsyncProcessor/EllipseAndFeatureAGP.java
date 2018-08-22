@@ -41,12 +41,18 @@ public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
                 getEnum(FeatureGP.DetectorType.class, detector),
                 getEnum(FeatureGP.MatcherType.class, matcher),
                 databaseManager, context);
+        /*FeatureGP fp = new FeatureGP(
+                FeatureGP.DetectorType.ORB,
+                getEnum(FeatureGP.MatcherType.class, matcher),
+                databaseManager, context);*/
+        fp.setParameter("nFeaturesMax", 256);
+        fp.setParameter("nFeaturesMin", 128);
         processors.add(fp);
 
         task = processors;
     }
 
-    private static <T extends Enum<T>> T getEnum(Class<T> c, String string) {
+    public static <T extends Enum<T>> T getEnum(Class<T> c, String string) {
         if( c != null && string != null ) {
             try {
                 return Enum.valueOf(c, string.trim().replaceAll("\\s","").toUpperCase());

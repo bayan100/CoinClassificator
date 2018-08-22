@@ -16,7 +16,7 @@ public class TensorflowAGP extends AsyncGraphicsProcessor {
         super(listener);
 
         ArrayList<GraphicsProcessor> processors = new ArrayList<>();
-        TensorflowProcessor gp = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity);
+        TensorflowProcessor gp = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity, databaseManager);
         gp.setImage(bitmap.copy(bitmap.getConfig(), true));
         processors.add(gp);
 

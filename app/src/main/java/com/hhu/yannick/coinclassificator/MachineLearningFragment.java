@@ -3,6 +3,7 @@ package com.hhu.yannick.coinclassificator;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -20,9 +21,12 @@ import com.hhu.yannick.coinclassificator.AsyncProcessor.AsyncGraphicsProcessor;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.EllipseAndTensorflowAGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.OnTaskCompleted;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.TensorflowAGP;
+import com.hhu.yannick.coinclassificator.SQLite.CoinData;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 
 import org.opencv.core.RotatedRect;
+
+import java.text.DecimalFormat;
 
 public class MachineLearningFragment extends Fragment implements OnTaskCompleted {
     private boolean loaded;
@@ -32,8 +36,10 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
 
     // Views
     private TextView countryText;
+    private TextView valueText;
     private TextView accuracyText;
     private ImageView coinView;
+    private ImageView flagView;
     private ProgressBar progressBar;
 
     private RotatedRect ellipse;
@@ -70,8 +76,10 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
 
         // findViewById must happen after onCreate and onViewCreate so calling it here
         countryText = view.findViewById(R.id.countryText);
+        valueText = view.findViewById(R.id.valueText);
         accuracyText = view.findViewById(R.id.accuracyText);
         coinView = view.findViewById(R.id.coinView);
+        flagView = view.findViewById(R.id.flagView);
         progressBar = view.findViewById(R.id.pBar);
     }
 
@@ -104,7 +112,29 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
     public void onTaskCompleted() {
 
         coinView.setImageBitmap((Bitmap)main.result.get("bitmap"));
-        countryText.setText((String)main.result.get("country"));
+        if (main.result.containsKey("coin")) {
+            String country = ((CoinData) main.result.get("coin")).country;
+            country = Character.toUpperCase(country.charAt(0)) + country.substring(1, country.length());
+            String value = CoinData.valueToString(((CoinData) main.result.get("coin")).value);
+            float accuracy = (Float)main.result.get("accuracy");
+            countryText.setText(country);
+            valueText.setText(value);
+            DecimalFormat formatter = new DecimalFormat("#.00");
+            accuracyText.setText(formatter.format(accuracy * 100) + "%");
+            // set accuracy-string color
+            if(accuracy >= 0.50)
+                accuracyText.setTextColor(Color.argb(255, 0, 226,26));
+            else if(accuracy >= 0.20)
+                accuracyText.setTextColor(Color.argb(255, 190, 255, 0));
+            else if(accuracy >= 0.01)
+                accuracyText.setTextColor(Color.argb(255,255, 216,0));
+            else
+                accuracyText.setTextColor(Color.argb(255, 255, 0, 0));
+
+            // get the corresponding flag
+            if(main.result.containsKey("flag"))
+                flagView.setImageBitmap((Bitmap) main.result.get("flag"));
+        }
 
         progressBar.setVisibility(View.INVISIBLE);
     }

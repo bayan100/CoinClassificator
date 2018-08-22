@@ -42,49 +42,34 @@ public class DatabaseManager {
         }
     }
 
-    /*
-    public void putTest(Mat test){
-        ContentValues values = new ContentValues();
-        values.put("Type", "TestMat");
-        values.put("Coin_id", 0);
-        values.put("Keypoints", new byte[]{(byte)100});
-        Log.d("SQL", "put1");
-        values.put("Descriptor", toDBBytes(test));
-        values.put("Mask", new byte[]{(byte)100});
-        database.insert("Feature", null, values);
-    }
-
-    public Mat getTest(){
-        String sql = "SELECT Descriptor FROM Feature WHERE " +
-                "Type = 'TestMat';";
-        Cursor cursor = database.rawQuery(sql, null);
-        cursor.moveToFirst();
-        byte[] bytes = cursor.getBlob(0);
-        cursor.close();
-
-        database.delete("Feature", "Type = ?", new String[]{"TestMat"});
-
-        return fromDBBytes(bytes);
-    }*/
-
     public Map<String, CoinData[]> getCoins(){
-        Map<String, CoinData[]> data = new HashMap<>();
+        Map<String, List<CoinData>> data = new HashMap<>();
 
-        String sql = "SELECT Name, Value FROM Coin, Country WHERE Coin.Country_id = Country.id;";
+        String sql = "SELECT Name, Value, Version FROM Coin, Country WHERE Coin.Country_id = Country.id;";
         Cursor cursor = database.rawQuery(sql, null);
         cursor.moveToFirst();
         while (!cursor.isAfterLast()) {
             String country = cursor.getString(0);
             int value = cursor.getInt(1);
+            int version = cursor.getInt(2);
 
             if(!data.containsKey(country)){
-                data.put(country, new CoinData[3]);
+                data.put(country, new ArrayList<CoinData>());
             }
-            data.get(country)[value] = new CoinData(value, country);
+            data.get(country).add(new CoinData(value, version, country));
             cursor.moveToNext();
         }
         cursor.close();
-        return data;
+
+        // convert all lists to arrays
+        Map<String, CoinData[]> data2 = new HashMap<>();
+        for (String c : data.keySet()) {
+            CoinData[] cd = new CoinData[data.get(c).size()];
+            cd = data.get(c).toArray(cd);
+            data2.put(c, cd);
+        }
+
+        return data2;
     }
 
     public void putFeatures(List<FeatureData> featureData, CoinData coin){
@@ -92,7 +77,8 @@ public class DatabaseManager {
         String sql = "SELECT id FROM Coin, Country WHERE " +
                 "Coin.Country_id = Country.id AND " +
                 "County.Name = '" + coin.country + "' AND " +
-                "Coin.Value = " + coin.value + ";";
+                "Coin.Value = " + coin.value + " AND " +
+                "Coin.Version = " + coin.version + ";";
         Cursor cursor = database.rawQuery(sql, null);
         cursor.moveToFirst();
         int coinId = cursor.getInt(0);
@@ -129,7 +115,8 @@ public class DatabaseManager {
         String sql = "SELECT Coin.id FROM Coin, Country WHERE " +
                 "Coin.Country_id = Country.id AND " +
                 "Country.Name = '" + coin.country + "' AND " +
-                "Coin.Value = " + coin.value + ";";
+                "Coin.Value = " + coin.value + " AND " +
+                "Coin.Version = " + coin.version + ";";
         Cursor cursor = database.rawQuery(sql, null);
         cursor.moveToFirst();
         int coinId = cursor.getInt(0);
@@ -161,7 +148,7 @@ public class DatabaseManager {
     public Map<CoinData, FeatureData> getFeaturesByType(String type){
         Map<CoinData, FeatureData> data = new HashMap<>();
 
-        String sql = "SELECT Country.Name, Coin.Value, Binary.Start, Binary.Length " +
+        String sql = "SELECT Country.Name, Coin.Value, Coin.Version, Binary.Start, Binary.Length " +
                 "FROM Feature, Coin, Country, Binary WHERE " +
                 "Feature.Coin_id = Coin.id AND " +
                 "Coin.Country_id = Country.id AND " +
@@ -172,9 +159,9 @@ public class DatabaseManager {
         while (!cursor.isAfterLast()) {
 
             FeatureData feature = new FeatureData(type);
-            feature.start = cursor.getInt(2);
-            feature.length = cursor.getInt(3);
-            CoinData coinData = new CoinData(cursor.getInt(1), cursor.getString(0));
+            feature.start = cursor.getInt(3);
+            feature.length = cursor.getInt(4);
+            CoinData coinData = new CoinData(cursor.getInt(1), cursor.getInt(2), cursor.getString(0));
 
             data.put(coinData, feature);
             cursor.moveToNext();
@@ -197,6 +184,7 @@ public class DatabaseManager {
         ContentValues values = new ContentValues();
         values.put("Country_id", countryId);
         values.put("Value", coinData.value);
+        values.put("Version", coinData.version);
         database.insert("Coin", null, values);
     }
 
@@ -236,5 +224,16 @@ public class DatabaseManager {
         values.put("Name", country);
         values.put("Binary_id", binId);
         database.insert("Country", null, values);
+    }
+
+    public int[] getCountryFlag(String name){
+        String sql = "SELECT Start, Length FROM Country, Binary WHERE " +
+                "Country.Name = '" + name + "' AND " +
+                "Binary.id = Country.Binary_id" + ";";
+        Cursor cursor = database.rawQuery(sql, null);
+        cursor.moveToFirst();
+        int[] result = new int[]{cursor.getInt(0), cursor.getInt(1)};
+        cursor.close();
+        return result;
     }
 }

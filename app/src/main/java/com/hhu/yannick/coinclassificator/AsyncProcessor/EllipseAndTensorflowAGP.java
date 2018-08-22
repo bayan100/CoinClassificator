@@ -31,7 +31,7 @@ public class EllipseAndTensorflowAGP extends AsyncGraphicsProcessor {
         processors.add(new ContourGP(ContourGP.Type.FILTER));
         processors.add(new EllipseGP(EllipseGP.Type.FIND));
 
-        TensorflowProcessor tf = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity);
+        TensorflowProcessor tf = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity, databaseManager);
 
         gp = new ResizeGP(ResizeGP.Type.RESIZE_ELLIPSE);
         gp.setImage(bitmap.copy(bitmap.getConfig(), true));

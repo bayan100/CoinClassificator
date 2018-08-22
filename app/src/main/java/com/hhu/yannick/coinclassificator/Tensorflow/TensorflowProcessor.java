@@ -5,6 +5,9 @@ import android.graphics.Bitmap;
 import android.util.Log;
 
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.GraphicsProcessor;
+import com.hhu.yannick.coinclassificator.SQLite.CoinData;
+import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
+import com.hhu.yannick.coinclassificator.SQLite.MatSerializer;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
@@ -12,9 +15,11 @@ import org.opencv.imgproc.Imgproc;
 import org.tensorflow.lite.Interpreter;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
@@ -34,13 +39,14 @@ public class TensorflowProcessor extends GraphicsProcessor {
     private int[] intValues;
 
     private Activity activity;
+    private DatabaseManager databaseManager;
 
     private Task type;
     public enum Task{
         CLASSIFY
     }
 
-    public TensorflowProcessor(Task task, Activity activity){
+    public TensorflowProcessor(Task task, Activity activity, DatabaseManager dbm){
         parameter.put("dimBatchSize", 1);
         parameter.put("dimPixelSize", 3);
 
@@ -56,7 +62,7 @@ public class TensorflowProcessor extends GraphicsProcessor {
         type = task;
         this.task = "Tensorflow_" +  task.toString();
         this.activity = activity;
-        Log.d("TENSOR", "= null : " + (activity == null));
+        this.databaseManager = dbm;
     }
 
     @Override
@@ -121,8 +127,11 @@ public class TensorflowProcessor extends GraphicsProcessor {
             if(labelProbArray[0][i] > labelProbArray[0][maxInd])
                 maxInd = i;
         }
-        data.put("country", labelList.get(maxInd));
+        String[] split = labelList.get(maxInd).split(" ");
+
+        data.put("coin", new CoinData(Integer.parseInt(split[1]), 0, split[0]));
         data.put("accuracy", labelProbArray[0][maxInd]);
+        loadFlag(Character.toUpperCase(split[0].charAt(0)) + split[0].substring(1, split[0].length()));
     }
 
 
@@ -194,13 +203,49 @@ public class TensorflowProcessor extends GraphicsProcessor {
         }
     }
 
-    private void prepareImage(){
-        // resize
-        Mat material = toMat((Bitmap)data.get("bitmap"));
-        Imgproc.resize(material, material,
-                new Size(getInt("tensorImageWidth"), getInt("tensorImageHeight")),
-                0, 0, Imgproc.INTER_LINEAR);
-        data.put("mat", material);
-        data.put("bitmap", toBitmap(material));
+    private void loadFlag(String country){
+        String binFile = "FLAGS.bin";
+        File bin = null;
+        File storage = activity.getApplicationContext().getFilesDir();
+
+        // find it
+        for (File fileEntry : storage.listFiles())
+            if(fileEntry.getName().equals(binFile)) {
+                bin = fileEntry;
+                break;
+            }
+
+        // load the information about the binarys from the database
+        int[] binSL = databaseManager.getCountryFlag(country);
+        Mat flag = null;
+        RandomAccessFile output = null;
+        try {
+            // open and read from binary file
+            output = new RandomAccessFile(bin, "rw");
+
+            byte[] binary = new byte[binSL[1]];
+
+            output.seek(binSL[0]);
+            try {
+                output.read(binary, 0, binary.length);
+            } finally {
+                // convert flag
+                flag = MatSerializer.matFromBytes(binary);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        finally {
+            try {
+                // close the file
+                if (output != null)
+                    output.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if(flag != null)
+            data.put("flag", toBitmap(flag));
     }
 }
