@@ -6,9 +6,9 @@
     <string name="tab_text_2">Feature Matching</string>
     <string name="continue_button_text">Continue</string>
     <string name="back_button_text">Back</string>
-    <string name="action_settings">Settings</string>
+    <string name="action_parameter">Parameter</string>
+    <string name="action_features">Feature Representation</string>
+    <string name="action_dataset">CNN-Dataset</string>
     <string name="section_format">Hello World from section: %1$d</string>
 
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

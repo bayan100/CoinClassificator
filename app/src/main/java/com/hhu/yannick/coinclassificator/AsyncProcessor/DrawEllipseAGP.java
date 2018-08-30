@@ -28,6 +28,7 @@ public class DrawEllipseAGP extends AsyncGraphicsProcessor {
         processors.add(new ContourGP(ContourGP.Type.FIND));
         processors.add(new ContourGP(ContourGP.Type.SPLIT));
         processors.add(new ContourGP(ContourGP.Type.FILTER));
+        processors.add(new ContourGP(ContourGP.Type.MERGE));
         processors.add(new EllipseGP(EllipseGP.Type.FIND));
         // and draw ellipse
         gp = new ResizeGP(ResizeGP.Type.LINEAR);

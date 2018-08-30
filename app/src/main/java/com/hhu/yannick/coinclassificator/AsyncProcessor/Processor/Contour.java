@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
+import org.opencv.core.Mat;
 import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
@@ -19,6 +20,7 @@ public class Contour implements Comparable {
     MatOfPoint data;
     Point[] points;
     double[] endDirections;
+    Point[] endVectors;
 
     Point center;
     double area;
@@ -127,9 +129,9 @@ public class Contour implements Comparable {
         if(!Double.isNaN(area)) {
             // compare to area estimate. If new area is much bigger than estimate we got a
             // unwanted cluster that needs to be removed
-            if(this.area * 1 < area)
+            /*if(this.area * 1 < area)
                 this.area = -1;
-            else
+            else*/
                 this.area = Math.abs(area);
         }
         else
@@ -177,61 +179,42 @@ public class Contour implements Comparable {
         }
     }
 
-    void appendPoints(List<Point> p){
-        MatOfPoint matOfPoint = new MatOfPoint();
-
-        ArrayList<Point> tmp = new ArrayList<>();
-        Collections.addAll(tmp, points);
-        tmp.addAll(p);
-
-        matOfPoint.fromList(tmp);
-        data = matOfPoint;
-
-        points = tmp.toArray(new Point[tmp.size()]);
-    }
-
     public void calculateEndDirections() {
-        // simple linear regression on the last n points
-        int n = 5;
+        int n = 8;
 
+        // save vector (for debuging) and angle for merging
+        endVectors = new Point[2];
         endDirections = new double[2];
 
-        // startpoint
-        // find x- and y-mean
-        double xMean = 0, yMean = 0;
-        for (int i = 0; i < points.length && i < n; i++) {
-            xMean += points[i].x;
-            yMean += points[i].y;
+        // one end
+        double x = 0, y = 0;
+        for (int i = (n < points.length - 1 ? n : points.length - 1); i > 0; i--) {
+            x += points[i - 1].x - points[i].x;
+            y += points[i - 1].y - points[i].y;
         }
-        xMean /= n;
-        yMean /= n;
+        double len = Math.sqrt(x * x + y * y);
+        x /= len;
+        y /= len;
+        endVectors[0] = new Point(x, y);
+        // get the angle from vector
+        endDirections[0] = (Math.toDegrees(Math.atan2(y, x)) + 360) % 360;
 
-        double bx2 = 0, bxy = 0;
-        for (int i = 0; i < points.length && i < n; i++) {
-            bxy += (points[i].x - xMean) * (points[i].y - yMean);
-            bx2 += (points[i].x - xMean) * (points[i].x - xMean);
+        // other end
+        x = 0; y = 0;
+        for (int i = points.length - n; i < points.length - 1; i++) {
+            x += points[i + 1].x - points[i].x;
+            y += points[i + 1].y - points[i].y;
         }
-        double m = bxy / bx2;
-        endDirections[0] = m;
+        len = Math.sqrt(x * x + y * y);
+        x /= len;
+        y /= len;
+        endVectors[1] = new Point(x, y);
+        endDirections[1] = (Math.toDegrees(Math.atan2(y, x)) + 360) % 360;
+    }
 
-        // endpoint
-        xMean = 0;
-        yMean = 0;
-        for (int i = points.length - n; i < points.length; i++) {
-            xMean += points[i].x;
-            yMean += points[i].y;
-        }
-        xMean /= n;
-        yMean /= n;
-
-        bx2 = 0;
-        bxy = 0;
-        for (int i = points.length - n; i < points.length; i++) {
-            bxy += (points[i].x - xMean) * (points[i].y - yMean);
-            bx2 += (points[i].x - xMean) * (points[i].x - xMean);
-        }
-        m = bxy / bx2;
-        endDirections[1] = m;
+    private boolean angleInTolerance(double a1, double a2, double tolerance){
+        a1 = (a1 + 180) % 360;
+        return a2 - tolerance < a1 && a2 + tolerance > a1;
     }
 
     public boolean tryMerge(Contour item, double maxDistance, double mTolerance){
@@ -243,10 +226,8 @@ public class Contour implements Comparable {
             double d = dist(points[ind1], item.points[ind2]);
             // found 2 close contours
             if(d < maxDistance){
-                // only merge if slope in tolerance
-                if(Math.abs(endDirections[i % 2]) - mTolerance < Math.abs(item.endDirections[i / 2]) &&
-                        Math.abs(item.endDirections[i / 2]) < Math.abs(endDirections[i % 2]) + mTolerance &&
-                        Math.signum(endDirections[i % 2]) == Math.signum(item.endDirections[i / 2])){
+                // only merge if angle in tolerance
+                if(angleInTolerance(endDirections[i % 2], item.endDirections[i / 2], mTolerance)) {
                     // merge with right order
                     ArrayList<Point> tmp = new ArrayList<>();
                     if(ind1 == 0) {
@@ -273,6 +254,9 @@ public class Contour implements Comparable {
 
                     points = tmp.toArray(new Point[tmp.size()]);
 
+                    // recalculate endDirections
+                    calculateEndDirections();
+
                     return true;
                 }
             }
@@ -294,11 +278,12 @@ public class Contour implements Comparable {
 
         Point[] points = data.toArray();
         for (int i = 0; i < points.length; i++) {
-            //if(i < points.length / 2)
-            //    continue;
             colors[matWidth * (int)points[i].y + (int)points[i].x] = Color.rgb((int)((points.length - i) * (255f / points.length)), (int)(i * (255f / points.length)), 0);
         }
 
+        //Log.d("ENDDIR", endDirections[0] + ", " + endDirections[1]);
+        //Log.d("ENDDIR", endVectors[0] + ", " + endVectors[1]);
+        //Log.d("ENDDIR", points[0] + ", " + points[points.length - 1]);
         material.setPixels(colors, 0, matWidth, 0,0, matWidth, matHeight);
     }
 
@@ -314,16 +299,28 @@ public class Contour implements Comparable {
             if(i == 0 || i == points.length - 1)
                 colors[matWidth * (int)points[i].y + (int)points[i].x] = Color.WHITE;
             else if(i == centerLinePoint)
-                colors[matWidth * (int)points[i].y + (int)points[i].x] = Color.YELLOW;
+                colors[matWidth * (int)points[i].y + (int)points[i].x] = Color.BLUE;
             else
                 colors[matWidth * (int)points[i].y + (int)points[i].x] = color;
         }
 
-        if(center != null)
+        // draw endDirections
+        /*for (int i = 0; i < 5; i++) {
+            int x = (int)points[0].x + i;
+            int y = (int)(points[0].y + endDirections[0] * i);
+            colors[matWidth * y + x] = Color.YELLOW;
+        }
+        for (int i = 0; i < 5; i++) {
+            int x = (int)points[points.length - 1].x + i;
+            int y = (int)(points[points.length - 1].y + endDirections[1] * i);
+            colors[matWidth * y + x] = Color.YELLOW;
+        }*/
+
+        /*if(center != null)
             for (int i = 0; i < 5; i++) {
                 colors[matWidth * (int) center.y + (int) center.x + i - 2] = color;
                 colors[matWidth * ((int) center.y + i - 2) + (int) center.x] = color;
-            }
+            }*/
 
         material.setPixels(colors, 0, matWidth, 0,0, matWidth, matHeight);
     }

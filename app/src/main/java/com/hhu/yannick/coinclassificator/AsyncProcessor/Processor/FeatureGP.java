@@ -47,26 +47,27 @@ public class FeatureGP extends GraphicsProcessor {
         ORB
     }
 
-    private MatcherType matcherType;
-    public enum MatcherType{
-        BRUTEFORCE,
-        FLANNBASED
+    private MatchMethode matchMethode;
+    public enum MatchMethode{
+        LOWE_RATIO_TEST,
+        SMALLEST_DISTANCE,
+        DISTANCE_THRESHOLD
     }
 
     private DatabaseManager databaseManager;
     private Context context;
     private String directory = null;
 
-    public FeatureGP(DetectorType detectorType, MatcherType matcherType, DatabaseManager databaseManager, Context context){
+    public FeatureGP(DetectorType detectorType, MatchMethode matchMethode, DatabaseManager databaseManager, Context context){
         this.detectorType = detectorType;
-        this.matcherType = matcherType;
+        this.matchMethode = matchMethode;
         this.databaseManager = databaseManager;
         this.context = context;
 
         parameter.put("nFeaturesMax", -1);
         parameter.put("nFeaturesMin", -1);
 
-        this.task = "Feature: " + detectorType.toString() + ", matcher: " + matcherType.toString();
+        this.task = "Feature: " + detectorType.toString() + ", matcher: " + matchMethode.toString();
     }
 
     public FeatureGP(String directory, DetectorType detectorType, DatabaseManager databaseManager, Context context){
@@ -193,28 +194,18 @@ public class FeatureGP extends GraphicsProcessor {
         return new FeatureData(detectorType.toString(), keypoints, descriptors, mask);
     }
 
-    private CoinData matchAgainstCoins(FeatureData input, Map<CoinData, FeatureData> set){
+    private CoinData matchAgainstCoins(FeatureData input, Map<CoinData, FeatureData> set) {
 
         // create the right matcher
         DescriptorMatcher matcher = null;
-        switch (matcherType){
-            case BRUTEFORCE:
-                if(input.type.equals("ORB"))
-                    matcher = BFMatcher.create(BFMatcher.BRUTEFORCE_HAMMING, true);
-                else
-                    matcher = BFMatcher.create();
-                break;
-            case FLANNBASED:
-                if(input.type.equals("ORB"))
-                    matcher = BFMatcher.create(BFMatcher.BRUTEFORCE_HAMMING, true);
-                else
-                    matcher = DescriptorMatcher.create(DescriptorMatcher.FLANNBASED);
-                break;
-        }
+        if (input.type.equals("ORB"))
+            matcher = BFMatcher.create(BFMatcher.BRUTEFORCE_HAMMING, true);
+        else
+            matcher = BFMatcher.create();
 
         // iterate the features and match the input against the coins
         TreeMap<Double, CoinData> result = new TreeMap<>();
-        for (CoinData cd : set.keySet()){
+        for (CoinData cd : set.keySet()) {
             double score = match(input, set.get(cd), matcher);
             result.put(score, cd);
         }
@@ -223,46 +214,82 @@ public class FeatureGP extends GraphicsProcessor {
             Log.d("MATCH", "Country: " + cd.country + ", value: " + cd.value + " -> score: " + d);
         }
 
-        // return the highest scoring Coin
-        return result.get(result.lastKey());
+        // return the highest scoring Coin or with lowest distance
+        if (matchMethode == MatchMethode.SMALLEST_DISTANCE)
+            return result.get(result.firstKey());
+        else
+            return result.get(result.lastKey());
     }
 
     private double match(FeatureData input, FeatureData feature, DescriptorMatcher matcher) {
         // do the matching and start evaluation
         MatOfDMatch match = new MatOfDMatch();
-        matcher.match(input.descriptor, feature.descriptor, match);
 
-        /*
-        // calculate the total distance per keypoint
-        double total = 0;
-        List<DMatch> matches = match.toList();
-        for (int i = 0; i < matches.size(); i++) {
-            total += matches.get(i).distance;
+        // match according to the chosen method
+        List<DMatch> matches = null;
+        switch (matchMethode) {
+            case LOWE_RATIO_TEST:
+                List<MatOfDMatch> knnMatches = new ArrayList<>();
+
+                // k-nearest-neighbors with k=2 for Lowe
+                matcher.knnMatch(input.descriptor, feature.descriptor, knnMatches, 2);
+                int found = 0;
+                // filter matches using the Lowe's ratio test
+                double ratioThresh = 0.7;
+                //List<DMatch> listOfGoodMatches = new ArrayList<>();
+                for (int i = 0; i < knnMatches.size(); i++) {
+                    if (knnMatches.get(i).rows() > 1) {
+                        DMatch[] ma = knnMatches.get(i).toArray();
+                        if (ma[0].distance < ratioThresh * ma[1].distance) {
+                            //listOfGoodMatches.add(matches[0]);
+                            found++;
+                        }
+                    }
+                }
+                return (double) found / knnMatches.size();
+
+
+            // intuitive
+            case SMALLEST_DISTANCE:
+                // simple match
+                matcher.match(input.descriptor, feature.descriptor, match);
+                matches = match.toList();
+
+                // calculate the total distance per keypoint
+                double total = 0;
+
+                for (int i = 0; i < matches.size(); i++) {
+                    total += matches.get(i).distance;
+                }
+                total /= matches.size();
+                return total;
+
+            case DISTANCE_THRESHOLD:
+                // simple match
+                matcher.match(input.descriptor, feature.descriptor, match);
+                matches = match.toList();
+
+                double maxDist = 0;
+                double minDist = Double.MAX_VALUE;
+
+                // Quick calculation of max and min distances between keypoints
+                for (int i = 0; i < matches.size(); i++) {
+                    double dist = matches.get(i).distance;
+                    if (dist < minDist) minDist = dist;
+                    if (dist > maxDist) maxDist = dist;
+                }
+
+                // get only "good" matches (whose distance is less than 2 * minDist)
+                int found2 = 0;
+                for (int i = 0; i < matches.size(); i++) {
+                    if (matches.get(i).distance <= 2 * minDist)
+                        found2++;
+                }
+
+                // return the ratio between "good" and bad matches
+                return (double) found2 / matches.size();
         }
-        total /= matches.size();
-        return total;*/
-
-
-        double maxDist = 0;
-        double minDist = Double.MAX_VALUE;
-
-        // Quick calculation of max and min distances between keypoints
-        List<DMatch> matches = match.toList();
-        for (int i = 0; i < matches.size(); i++) {
-            double dist = matches.get(i).distance;
-            if (dist < minDist) minDist = dist;
-            if (dist > maxDist) maxDist = dist;
-        }
-
-        // get only "good" matches (whose distance is less than 2 * minDist)
-        int found = 0;
-        for (int i = 0; i < matches.size(); i++) {
-            if (matches.get(i).distance <= 2 * minDist)
-                found++;
-        }
-
-        // return the ratio between "good" and bad matches
-        return (double)found / matches.size();
+        return 0;
     }
 
     private void generateCountry(String directory){

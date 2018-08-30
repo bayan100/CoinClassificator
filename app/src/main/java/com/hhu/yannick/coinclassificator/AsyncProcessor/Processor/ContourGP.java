@@ -39,7 +39,7 @@ public class ContourGP extends GraphicsProcessor {
         parameter.put("nBasePoints", 7);
         parameter.put("numberOfRetainedContours", 5);
         parameter.put("endpointRadius", 7.0);
-        parameter.put("mTolerance", 0.4);
+        parameter.put("mTolerance", 10.0);
     }
 
     @Override
@@ -206,24 +206,28 @@ public class ContourGP extends GraphicsProcessor {
         double mTolerance = (Double)parameter.get("mTolerance");
 
         // calculate endpoints
-        for (int i = 0; i < contours.size(); i++)
+        for (int i = 0; i < 40 && i < contours.size(); i++)
             contours.get(i).calculateEndDirections();
 
         // try to merge every contour
-        for (int i = 0; i < contours.size(); i++) {
-            for (int j = i + 1; j < contours.size(); j++) {
-
-                if(i == 0 && j == 7)
-                    Log.d("DEBUG", "ah");
-
-                // merger?
-                if(contours.get(i).tryMerge(contours.get(j), endpointRadius, mTolerance)){
-                    // remove the merged contour j
-                    contours.remove(j);
-                    j--;
+        boolean merge;
+        do {
+            merge = false;
+            for (int i = 0; i < contours.size(); i++) {
+                for (int j = i + 1; j < contours.size(); j++) {
+                    // merger?
+                    if (contours.get(i).tryMerge(contours.get(j), endpointRadius, mTolerance)) {
+                        // remove the merged contour j
+                        contours.remove(j);
+                        j--;
+                        merge = true;
+                    }
                 }
             }
-        }
+        }while (merge);
+
+        // resort the contours
+        Collections.sort(contours);
 
         return Status.PASSED;
     }
@@ -246,7 +250,7 @@ public class ContourGP extends GraphicsProcessor {
         }
         Bitmap contoursBM = toBitmap(contoursMat);
 
-        for (int i = 0; i < 80 && i < contours.size(); i++) {
+        for (int i = 0; i < 40 && i < contours.size(); i++) {
             if (i != 0)
                 contours.get(i).draw(contoursBM, Color.rgb((int) ((contours.size() - i) * (255f / contours.size())), (int) (i * (255f / contours.size())), 0));
                 //contours.get(i).draw(contoursBM, Color.HSVToColor(new float[] {i * (255f / contours.size()), 255f, 255f}));

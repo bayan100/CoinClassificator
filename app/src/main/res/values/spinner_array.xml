@@ -12,7 +12,8 @@
 </string-array>
 
 <string-array name="matcher_array">
-    <item>Brute Force</item>
-    <item>Flannbased</item>
+    <item>Lowe Ratio Test</item>
+    <item>Smallest Total Distance</item>
+    <item>Distance Threshold</item>
 </string-array>
 </resources>

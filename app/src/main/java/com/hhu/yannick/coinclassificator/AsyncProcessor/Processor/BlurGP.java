@@ -3,19 +3,22 @@ package com.hhu.yannick.coinclassificator.AsyncProcessor.Processor;
 import android.graphics.Bitmap;
 
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 public class BlurGP extends GraphicsProcessor {
 
     private Type type;
     public enum Type{
-        MEDIAN
+        MEDIAN,
+        GAUSS
     }
 
     public BlurGP(Type type){
         this.type = type;
         task = type.toString() + "_Blur";
         parameter.put("kSize", 7);
+        parameter.put("sigma", 1f);
     }
 
     @Override
@@ -32,6 +35,12 @@ public class BlurGP extends GraphicsProcessor {
         if(type == Type.MEDIAN) {
             int ksize = getInt("kSize");
             Imgproc.medianBlur(material, material, ksize);
+            data.put("mat", material);
+        }
+        else if(type == Type.GAUSS){
+            int ksize = getInt("kSize");
+            float sigma = getFloat("sigma");
+            Imgproc.GaussianBlur(material, material, new Size(ksize, ksize), sigma);
             data.put("mat", material);
         }
         return Status.PASSED;

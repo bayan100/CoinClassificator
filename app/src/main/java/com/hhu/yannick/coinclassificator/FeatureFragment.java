@@ -47,7 +47,7 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
     private AsyncGraphicsProcessor main;
     private boolean loaded;
     private FeatureGP.DetectorType detectorType = FeatureGP.DetectorType.SIFT;
-    private FeatureGP.MatcherType matcherType = FeatureGP.MatcherType.BRUTEFORCE;
+    private FeatureGP.MatchMethode matcherType = FeatureGP.MatchMethode.LOWE_RATIO_TEST;
 
     // cached variables
     private RotatedRect ellipse;
@@ -173,10 +173,20 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
                 }
                 break;
             case R.id.matcherSpinner:
-                FeatureGP.MatcherType mt = EllipseAndFeatureAGP.getEnum(FeatureGP.MatcherType.class, matcherSpinner.getSelectedItem().toString());
-                if(matcherType != mt) {
+                String mm = matcherSpinner.getSelectedItem().toString();
+                FeatureGP.MatchMethode mme;
+
+                if(mm.equals("Lowe Ratio Test"))
+                    mme = FeatureGP.MatchMethode.LOWE_RATIO_TEST;
+                else if(mm.equals("Smallest Total Distance"))
+                    mme = FeatureGP.MatchMethode.SMALLEST_DISTANCE;
+                else
+                    mme = FeatureGP.MatchMethode.DISTANCE_THRESHOLD;
+
+                // only restart if a different method was selected
+                if(matcherType != mme) {
                     startExecution();
-                    matcherType = mt;
+                    matcherType = mme;
                 }
                 break;
         }

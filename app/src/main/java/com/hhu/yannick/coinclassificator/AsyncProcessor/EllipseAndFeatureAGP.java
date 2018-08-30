@@ -39,7 +39,7 @@ public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
         processors.add(new ResizeGP(ResizeGP.Type.CROP));
         FeatureGP fp = new FeatureGP(
                 getEnum(FeatureGP.DetectorType.class, detector),
-                getEnum(FeatureGP.MatcherType.class, matcher),
+                getEnum(matcher),
                 databaseManager, context);
         /*FeatureGP fp = new FeatureGP(
                 FeatureGP.DetectorType.ORB,
@@ -61,5 +61,14 @@ public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
             }
         }
         return null;
+    }
+
+    private static FeatureGP.MatchMethode getEnum(String s){
+        if(s.equals("Lowe Ratio Test"))
+            return FeatureGP.MatchMethode.LOWE_RATIO_TEST;
+        else if(s.equals("Smallest Total Distance"))
+            return FeatureGP.MatchMethode.SMALLEST_DISTANCE;
+        else
+            return FeatureGP.MatchMethode.DISTANCE_THRESHOLD;
     }
 }

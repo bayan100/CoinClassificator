@@ -32,7 +32,7 @@ public class FeatureAGP extends AsyncGraphicsProcessor {
 
         FeatureGP fp = new FeatureGP(
                 getEnum(FeatureGP.DetectorType.class, detector),
-                getEnum(FeatureGP.MatcherType.class, matcher),
+                getEnum(matcher),
                 databaseManager, context);
         processors.add(fp);
 
@@ -48,5 +48,14 @@ public class FeatureAGP extends AsyncGraphicsProcessor {
             }
         }
         return null;
+    }
+
+    private static FeatureGP.MatchMethode getEnum(String s){
+        if(s.equals("Lowe Ratio Test"))
+            return FeatureGP.MatchMethode.LOWE_RATIO_TEST;
+        else if(s.equals("Smallest Total Distance"))
+            return FeatureGP.MatchMethode.SMALLEST_DISTANCE;
+        else
+            return FeatureGP.MatchMethode.DISTANCE_THRESHOLD;
     }
 }
