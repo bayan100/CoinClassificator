@@ -9,6 +9,7 @@
     <string name="action_parameter">Parameter</string>
     <string name="action_features">Feature Representation</string>
     <string name="action_dataset">CNN-Dataset</string>
+    <string name="action_results">More Results</string>
     <string name="section_format">Hello World from section: %1$d</string>
 
 </resources>

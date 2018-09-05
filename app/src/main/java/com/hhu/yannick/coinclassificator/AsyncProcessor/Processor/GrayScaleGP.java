@@ -25,9 +25,6 @@ public class GrayScaleGP extends GraphicsProcessor {
         Imgproc.cvtColor(mat, dest, Imgproc.COLOR_RGB2GRAY);
 
         data.put("mat", dest);
-
-        // DEBUG
-        Log.d("GRAY", "gray");
         data.put("bitmap", toBitmap(dest));
         return Status.PASSED;
     }

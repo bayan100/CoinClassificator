@@ -7,6 +7,7 @@ import android.util.Log;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -104,7 +105,12 @@ public class ResizeGP extends GraphicsProcessor {
 
                 // crop up to the border
                 Log.d("ELLIPSE", ellipse.toString());
-                mat = new Mat(out, ellipse.boundingRect());
+                Rect bounds = ellipse.boundingRect();
+                if(bounds.y + bounds.height > out.height())
+                    bounds.height = out.height() - bounds.y - 1;
+                if(bounds.x + bounds.width > out.width())
+                    bounds.width = out.width() - bounds.x - 1;
+                mat = new Mat(out, bounds);
 
                 // also 'crop' the ellipse
                 ellipse = new RotatedRect(new Point(ellipse.size.width / 2, ellipse.size.height / 2),

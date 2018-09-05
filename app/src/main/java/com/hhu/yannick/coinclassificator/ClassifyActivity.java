@@ -27,6 +27,10 @@ import com.hhu.yannick.coinclassificator.AsyncProcessor.DatabaseLoader;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.OnTaskCompleted;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 
+/**
+ * The android activity for the image classification. It embeds two fragments, one for
+ * Feature-classification and the other for CNN-based classification.
+ */
 public class ClassifyActivity extends AppCompatActivity implements OnTaskCompleted {
 
     private DatabaseLoader databaseLoader;
@@ -35,7 +39,6 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
 
     private MachineLearningFragment machineLearningFragment;
     private FeatureFragment featureFragment;
-    private boolean initialLoadComplete = false;
 
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide
@@ -102,7 +105,12 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_results) {
+            if(machineLearningFragment != null)
+                machineLearningFragment.showMoreResults();
+            if(featureFragment != null)
+                featureFragment.showMoreResults();
+
             return true;
         }
 
@@ -123,7 +131,7 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
      */
     public class SectionsPagerAdapter extends FragmentPagerAdapter {
 
-        public SectionsPagerAdapter(FragmentManager fm) {
+        SectionsPagerAdapter(FragmentManager fm) {
             super(fm);
         }
 
@@ -146,12 +154,17 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
         }
     }
 
+    /**
+     * This method gets called once a started AsyncGraphicsProcessor with this class as
+     * reference finishes execution.
+     *
+     * @see     com.hhu.yannick.coinclassificator.AsyncProcessor.AsyncGraphicsProcessor
+     */
     @Override
     public void onTaskCompleted() {
         // finished loading the database
         progress.cancel();
 
-        initialLoadComplete = true;
         Log.d("EXE", "initialLoad");
 
         // start the first task execution

@@ -201,7 +201,7 @@ public class Contour implements Comparable {
 
         // other end
         x = 0; y = 0;
-        for (int i = points.length - n; i < points.length - 1; i++) {
+        for (int i = points.length - n; i > -1 && i < points.length - 1; i++) {
             x += points[i + 1].x - points[i].x;
             y += points[i + 1].y - points[i].y;
         }
@@ -227,7 +227,8 @@ public class Contour implements Comparable {
             // found 2 close contours
             if(d < maxDistance){
                 // only merge if angle in tolerance
-                if(angleInTolerance(endDirections[i % 2], item.endDirections[i / 2], mTolerance)) {
+                if(endDirections != null && item.endDirections != null &&
+                   angleInTolerance(endDirections[i % 2], item.endDirections[i / 2], mTolerance)) {
                     // merge with right order
                     ArrayList<Point> tmp = new ArrayList<>();
                     if(ind1 == 0) {

@@ -29,6 +29,9 @@ import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 
 import org.opencv.core.RotatedRect;
 
+import java.text.DecimalFormat;
+import java.util.TreeMap;
+
 
 public class FeatureFragment extends Fragment implements AdapterView.OnItemSelectedListener, OnTaskCompleted {
 
@@ -38,6 +41,7 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
     private TextView countryText;
     private TextView valueText;
     private TextView accuracyText;
+    private TextView informationText;
     private ImageView coinView;
     private ImageView flagView;
     private ProgressBar progressBar;
@@ -51,6 +55,7 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
 
     // cached variables
     private RotatedRect ellipse;
+    private boolean moreResults;
 
     public FeatureFragment() {
         // Required empty public constructor
@@ -109,6 +114,7 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
         countryText = view.findViewById(R.id.countryText);
         valueText = view.findViewById(R.id.valueText);
         accuracyText = view.findViewById(R.id.accuracyText);
+        informationText = view.findViewById(R.id.informationText);
         coinView = view.findViewById(R.id.coinView);
         flagView = view.findViewById(R.id.flagView);
         progressBar = view.findViewById(R.id.pBar);
@@ -142,6 +148,51 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
         }
     }
 
+    public void showMoreResults(){
+        // show 4 more results in the information textbox
+        if(main != null && main.result != null && main.result.get("results") != null) {
+            moreResults = true;
+            TreeMap<Double, CoinData> result = (TreeMap<Double, CoinData>) main.result.get("results");
+            DecimalFormat formatter = new DecimalFormat("#.00");
+            StringBuilder sb = new StringBuilder();
+            int count = 0;
+            if (matcherType == FeatureGP.MatchMethode.SMALLEST_DISTANCE)
+                for (Double key : result.keySet()) {
+                    count++;
+                    if (count == 1)
+                        continue;
+                    else if (count > 8)
+                        break;
+
+                    CoinData d = result.get(key);
+                    sb.append(d.country);
+                    sb.append(" ");
+                    sb.append(CoinData.valueToString(d.value));
+                    sb.append("     Score: ");
+                    sb.append(formatter.format(key));
+                    sb.append("\n");
+                }
+            else
+                for (Double key : result.descendingKeySet()) {
+                    count++;
+                    if (count == 1)
+                        continue;
+                    else if (count > 7)
+                        break;
+
+                    CoinData d = result.get(key);
+                    sb.append(d.country);
+                    sb.append(" ");
+                    sb.append(CoinData.valueToString(d.value));
+                    sb.append("     Score: ");
+                    sb.append(formatter.format(key * 100));
+                    sb.append("\n");
+                }
+            informationText.setText(sb.toString());
+        }
+    }
+
+
     @Override
     public void onTaskCompleted() {
         // when task finished display information
@@ -152,6 +203,10 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
                 String value = CoinData.valueToString(((CoinData) main.result.get("coin")).value);
                 countryText.setText(country);
                 valueText.setText(value);
+                accuracyText.setText((String)main.result.get("accuracy"));
+
+                if(moreResults)
+                    showMoreResults();
 
                 // get the corresponding flag
                 if(main.result.containsKey("flag"))

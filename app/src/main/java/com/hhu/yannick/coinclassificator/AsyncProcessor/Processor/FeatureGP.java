@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.RandomAccessFile;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -115,7 +116,7 @@ public class FeatureGP extends GraphicsProcessor {
         }
     }
 
-    private FeatureData generateFeatures(Mat data){
+    /*private*/ FeatureData generateFeatures(Mat data){
         return generateFeatures(data, new RotatedRect(new Point(data.size().width / 2, data.size().height / 2), data.size(), 0));
     }
 
@@ -209,16 +210,45 @@ public class FeatureGP extends GraphicsProcessor {
             double score = match(input, set.get(cd), matcher);
             result.put(score, cd);
         }
-        for (Double d : result.keySet()) {
+        /*for (Double d : result.keySet()) {
             CoinData cd = result.get(d);
             Log.d("MATCH", "Country: " + cd.country + ", value: " + cd.value + " -> score: " + d);
-        }
+        }*/
+        data.put("results", result);
+        DecimalFormat formatter = new DecimalFormat("#.00");
 
         // return the highest scoring Coin or with lowest distance
-        if (matchMethode == MatchMethode.SMALLEST_DISTANCE)
+        if (matchMethode == MatchMethode.SMALLEST_DISTANCE) {
+            data.put("accuracy", "Score: " + formatter.format(result.firstKey()));
             return result.get(result.firstKey());
-        else
+        }
+        else {
+            data.put("accuracy", "Score: " + formatter.format(result.lastKey() * 100));
             return result.get(result.lastKey());
+        }
+    }
+
+    TreeMap<Double, CoinData> mAC(FeatureData input, Map<CoinData, FeatureData> set) {
+
+        // create the right matcher
+        DescriptorMatcher matcher = null;
+        if (input.type.equals("ORB"))
+            matcher = BFMatcher.create(BFMatcher.BRUTEFORCE_HAMMING, true);
+        else
+            matcher = BFMatcher.create();
+
+        // iterate the features and match the input against the coins
+        TreeMap<Double, CoinData> result = new TreeMap<>();
+        for (CoinData cd : set.keySet()) {
+            double score = match(input, set.get(cd), matcher);
+            result.put(score, cd);
+        }
+        /*for (Double d : result.keySet()) {
+            CoinData cd = result.get(d);
+            Log.d("MATCH", "Country: " + cd.country + ", value: " + cd.value + " -> score: " + d);
+        }*/
+
+        return result;
     }
 
     private double match(FeatureData input, FeatureData feature, DescriptorMatcher matcher) {
@@ -240,7 +270,8 @@ public class FeatureGP extends GraphicsProcessor {
                 for (int i = 0; i < knnMatches.size(); i++) {
                     if (knnMatches.get(i).rows() > 1) {
                         DMatch[] ma = knnMatches.get(i).toArray();
-                        if (ma[0].distance < ratioThresh * ma[1].distance) {
+                        if (ma[0].distance < ratioThresh * ma[1].distance
+                            || ma[1].distance < ratioThresh * ma[0].distance) {
                             //listOfGoodMatches.add(matches[0]);
                             found++;
                         }
@@ -444,7 +475,7 @@ public class FeatureGP extends GraphicsProcessor {
         return data;
     }
 
-    private Map<CoinData, FeatureData> loadFeatures(){
+    /*private*/ Map<CoinData, FeatureData> loadFeatures(){
         // load the Feature-Type binary file
         String binFile = detectorType.toString() + ".bin";
         File bin = null;

@@ -27,6 +27,7 @@ import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 import org.opencv.core.RotatedRect;
 
 import java.text.DecimalFormat;
+import java.util.TreeMap;
 
 public class MachineLearningFragment extends Fragment implements OnTaskCompleted {
     private boolean loaded;
@@ -38,6 +39,7 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
     private TextView countryText;
     private TextView valueText;
     private TextView accuracyText;
+    private TextView informationText;
     private ImageView coinView;
     private ImageView flagView;
     private ProgressBar progressBar;
@@ -78,6 +80,7 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
         countryText = view.findViewById(R.id.countryText);
         valueText = view.findViewById(R.id.valueText);
         accuracyText = view.findViewById(R.id.accuracyText);
+        informationText = view.findViewById(R.id.informationText);
         coinView = view.findViewById(R.id.coinView);
         flagView = view.findViewById(R.id.flagView);
         progressBar = view.findViewById(R.id.pBar);
@@ -107,6 +110,29 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
         }
     }
 
+    public void showMoreResults(){
+        // show 4 more results in the information textbox
+        TreeMap<Double, CoinData> result = (TreeMap<Double, CoinData>)main.result.get("results");
+        DecimalFormat formatter = new DecimalFormat("#.00");
+        StringBuilder sb = new StringBuilder();
+        int count = 0;
+        for (Double key : result.descendingKeySet()){
+            count++;
+            if(count == 1)
+                continue;
+            else if(count > 10)
+                break;
+
+            CoinData d = result.get(key);
+            sb.append(d.country);
+            sb.append(" ");
+            sb.append(CoinData.valueToString(d.value));
+            sb.append("       ");
+            sb.append(formatter.format(key * 100));
+            sb.append("%\n");
+        }
+        informationText.setText(sb.toString());
+    }
 
     @Override
     public void onTaskCompleted() {
@@ -122,9 +148,9 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
             DecimalFormat formatter = new DecimalFormat("#.00");
             accuracyText.setText(formatter.format(accuracy * 100) + "%");
             // set accuracy-string color
-            if(accuracy >= 0.50)
+            if(accuracy >= 0.10)
                 accuracyText.setTextColor(Color.argb(255, 0, 226,26));
-            else if(accuracy >= 0.20)
+            else if(accuracy >= 0.03)
                 accuracyText.setTextColor(Color.argb(255, 190, 255, 0));
             else if(accuracy >= 0.01)
                 accuracyText.setTextColor(Color.argb(255,255, 216,0));

@@ -26,6 +26,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 public class TensorflowProcessor extends GraphicsProcessor {
     private final String MODEL_PATH = "tensorflow/optimized_graph.lite";
@@ -117,9 +118,9 @@ public class TensorflowProcessor extends GraphicsProcessor {
         // smooth the results
         applyFilter();
 
-        for (int i = 0; i < labelList.size(); i++) {
+        /*for (int i = 0; i < labelList.size(); i++) {
             Log.d("TENSOR", labelList.get(i) + ": " + labelProbArray[0][i]);
-        }
+        }*/
 
         // find max
         int maxInd = 0;
@@ -131,6 +132,14 @@ public class TensorflowProcessor extends GraphicsProcessor {
 
         data.put("coin", new CoinData(Integer.parseInt(split[1]), 0, split[0]));
         data.put("accuracy", labelProbArray[0][maxInd]);
+
+        // input all into a sorted list
+        TreeMap<Double, CoinData> result = new TreeMap<>();
+        for (int i = 1; i < labelList.size(); i++) {
+            String[] s = labelList.get(i).split(" ");
+            result.put((double)labelProbArray[0][i], new CoinData(Integer.parseInt(s[1]), 0, s[0]));
+        }
+        data.put("results", result);
         loadFlag(Character.toUpperCase(split[0].charAt(0)) + split[0].substring(1, split[0].length()));
     }
 
@@ -166,7 +175,7 @@ public class TensorflowProcessor extends GraphicsProcessor {
 
         intValues = new int[imageWidth * imageHeight];
         imgData.rewind();
-        Log.d("TENSOR", "tiw: " + imageWidth + ", tih: "+ imageHeight + ", bw: " + bitmap.getWidth() + ", bh: " + bitmap.getHeight());
+        //Log.d("TENSOR", "tiw: " + imageWidth + ", tih: "+ imageHeight + ", bw: " + bitmap.getWidth() + ", bh: " + bitmap.getHeight());
         bitmap.getPixels(intValues, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
 
         // Convert the image to floating point.
