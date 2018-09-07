@@ -104,7 +104,7 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
+        // show more results selected
         if (id == R.id.action_results) {
             if(machineLearningFragment != null)
                 machineLearningFragment.showMoreResults();
@@ -112,6 +112,10 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
                 featureFragment.showMoreResults();
 
             return true;
+        }
+        else if(id == R.id.action_dataset){
+            if(machineLearningFragment != null)
+                machineLearningFragment.loadDifferentGraph();
         }
 
         return super.onOptionsItemSelected(item);

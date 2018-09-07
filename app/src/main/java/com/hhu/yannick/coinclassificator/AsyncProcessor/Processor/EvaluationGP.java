@@ -36,10 +36,12 @@ public class EvaluationGP extends GraphicsProcessor {
 
     private String expectedResponse;
     private PrintWriter cnnStream;
+    private String fileName;
 
     public enum Type{
         FEATURES,
-        CNN
+        CNN,
+        LOADBITMAP
     }
 
     public EvaluationGP(Type type, DatabaseManager dbm, Context context){
@@ -55,6 +57,12 @@ public class EvaluationGP extends GraphicsProcessor {
 
         this.expectedResponse = expectedResponse;
         this.cnnStream = cnnStream;
+    }
+
+    public EvaluationGP(Type type, String fileName){
+        this.type = type;
+        task = type.toString() + "_Evaluation";
+        this.fileName = fileName;
     }
 
     @Override
@@ -84,8 +92,12 @@ public class EvaluationGP extends GraphicsProcessor {
             }
             return Status.PASSED;
         }
-        else {
+        else if (type == Type.CNN){
             evaluateCNN();
+            return Status.PASSED;
+        }
+        else {
+            loadTestPicture();
             return Status.PASSED;
         }
     }
@@ -103,6 +115,18 @@ public class EvaluationGP extends GraphicsProcessor {
             testDataExpected.add(s[0] + "_" + s[1]);
         }
     }
+
+    private void loadTestPicture(){
+        testData = new ArrayList<>();
+        testDataExpected = new ArrayList<>();
+
+        Bitmap bitmap = BitmapFactory.decodeFile(fileName);
+        String[] s = fileName.split("/");
+        s = s[s.length - 1].split("_");
+        data.put("expected", s[0] + "_" + s[1]);
+        setImage(bitmap);
+    }
+
 
     private void doFeatureTests(FeatureGP.DetectorType detectorType, FeatureGP.MatchMethode matchMethode, PrintWriter  writer){
         // create the FeatureGP instance we will abuse for testing
@@ -126,7 +150,7 @@ public class EvaluationGP extends GraphicsProcessor {
     private static int counter = 0;
     private void evaluateCNN(){
         TreeMap<Double, CoinData> result = (TreeMap<Double, CoinData>)data.get("results");
-        saveToFile(result, expectedResponse, cnnStream);
+        saveToFile(result, (String)data.get("expected"), cnnStream);
         Log.d("EVAL", "count: " + counter);
         counter++;
     }
@@ -138,11 +162,13 @@ public class EvaluationGP extends GraphicsProcessor {
         for (Double key : result.keySet()){
             sb.append(key);
             sb.append(":");
-            String country = result.get(key).country;
-            country = Character.toUpperCase(country.charAt(0)) + country.substring(1, country.length());
-            sb.append(country);
-            sb.append("_");
-            sb.append(result.get(key).value);
+            //String country = result.get(key).country;
+            //country = Character.toUpperCase(country.charAt(0)) + country.substring(1, country.length());
+            sb.append(result.get(key).country);
+            if(result.get(key).value != -1) {
+                sb.append("_");
+                sb.append(result.get(key).value);
+            }
             sb.append("|");
         }
         sb.deleteCharAt(sb.length() - 1);

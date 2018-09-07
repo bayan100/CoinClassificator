@@ -4,12 +4,10 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,6 +44,9 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
 
     private RotatedRect ellipse;
     private AsyncGraphicsProcessor main;
+
+    private boolean mergedModel = false;
+    private boolean showMoreResults = false;
 
     public MachineLearningFragment() {
         // Required empty public constructor
@@ -99,10 +100,10 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
             progressBar.setVisibility(View.VISIBLE);
 
             if(ellipse == null){
-                main = new EllipseAndTensorflowAGP(bitmap, databaseManager, activity, this);
+                main = new EllipseAndTensorflowAGP(bitmap, databaseManager, activity, mergedModel,this);
             }
             else {
-                main = new TensorflowAGP(bitmap, databaseManager, activity, this);
+                main = new TensorflowAGP(bitmap, databaseManager, activity, mergedModel,this);
             }
 
             // run
@@ -111,6 +112,8 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
     }
 
     public void showMoreResults(){
+        showMoreResults = true;
+
         // show 4 more results in the information textbox
         TreeMap<Double, CoinData> result = (TreeMap<Double, CoinData>)main.result.get("results");
         DecimalFormat formatter = new DecimalFormat("#.00");
@@ -134,6 +137,12 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
         informationText.setText(sb.toString());
     }
 
+    public void loadDifferentGraph(){
+        mergedModel = !mergedModel;
+
+        startExecution();
+    }
+
     @Override
     public void onTaskCompleted() {
 
@@ -142,7 +151,7 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
             String country = ((CoinData) main.result.get("coin")).country;
             country = Character.toUpperCase(country.charAt(0)) + country.substring(1, country.length());
             String value = CoinData.valueToString(((CoinData) main.result.get("coin")).value);
-            float accuracy = (Float)main.result.get("accuracy");
+            double accuracy = (Double)main.result.get("accuracy");
             countryText.setText(country);
             valueText.setText(value);
             DecimalFormat formatter = new DecimalFormat("#.00");
@@ -161,6 +170,9 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
             if(main.result.containsKey("flag"))
                 flagView.setImageBitmap((Bitmap) main.result.get("flag"));
         }
+
+        if(showMoreResults)
+            showMoreResults();
 
         progressBar.setVisibility(View.INVISIBLE);
     }

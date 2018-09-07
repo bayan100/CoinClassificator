@@ -31,6 +31,9 @@ import java.util.TreeMap;
 public class TensorflowProcessor extends GraphicsProcessor {
     private final String MODEL_PATH = "tensorflow/optimized_graph.lite";
     private final String LABEL_PATH = "tensorflow/retrained_labels.txt";
+    private final String MODEL_PATH_MERGED = "tensorflow/optimized_graph_merged.lite";
+    private final String LABEL_PATH_MERGED = "tensorflow/retrained_labels_merged.txt";
+    private boolean loadMergedModel = false;
 
     private Interpreter tflite;
     private List<String> labelList;
@@ -118,35 +121,40 @@ public class TensorflowProcessor extends GraphicsProcessor {
         // smooth the results
         applyFilter();
 
-        /*for (int i = 0; i < labelList.size(); i++) {
-            Log.d("TENSOR", labelList.get(i) + ": " + labelProbArray[0][i]);
-        }*/
-
-        // find max
-        int maxInd = 0;
-        for (int i = 1; i < labelList.size(); i++) {
-            if(labelProbArray[0][i] > labelProbArray[0][maxInd])
-                maxInd = i;
-        }
-        String[] split = labelList.get(maxInd).split(" ");
-
-        data.put("coin", new CoinData(Integer.parseInt(split[1]), 0, split[0]));
-        data.put("accuracy", labelProbArray[0][maxInd]);
-
         // input all into a sorted list
         TreeMap<Double, CoinData> result = new TreeMap<>();
-        for (int i = 1; i < labelList.size(); i++) {
-            String[] s = labelList.get(i).split(" ");
-            result.put((double)labelProbArray[0][i], new CoinData(Integer.parseInt(s[1]), 0, s[0]));
+        for (int i = 0; i < labelList.size(); i++) {
+            if(loadMergedModel) {
+                String s = labelList.get(i);
+                String country = Character.toUpperCase(s.charAt(0)) + s.substring(1, s.length());
+                result.put((double) labelProbArray[0][i], new CoinData(-1, 0, country));
+            }
+            else {
+                String[] s = labelList.get(i).split(" ");
+                String country = Character.toUpperCase(s[0].charAt(0)) + s[0].substring(1, s[0].length());
+                result.put((double) labelProbArray[0][i], new CoinData(Integer.parseInt(s[1]), 0, country));
+            }
         }
+        // pick the maximum
+        CoinData cd = result.get(result.lastKey());
+
+        data.put("coin", cd);
+        data.put("accuracy", result.lastKey());
         data.put("results", result);
-        loadFlag(Character.toUpperCase(split[0].charAt(0)) + split[0].substring(1, split[0].length()));
+        loadFlag(cd.country);
     }
 
+    public void changeModel(boolean loadMergedModel){
+        this.loadMergedModel = loadMergedModel;
+    }
 
     private MappedByteBuffer loadModelFile(Activity activity) throws IOException {
         // Memory-map the model file in Assets
-        AssetFileDescriptor fileDescriptor = activity.getAssets().openFd(MODEL_PATH);
+        AssetFileDescriptor fileDescriptor;
+        if(loadMergedModel)
+            fileDescriptor = activity.getAssets().openFd(MODEL_PATH_MERGED);
+        else
+            fileDescriptor = activity.getAssets().openFd(MODEL_PATH);
         FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
         FileChannel fileChannel = inputStream.getChannel();
         long startOffset = fileDescriptor.getStartOffset();
@@ -157,8 +165,11 @@ public class TensorflowProcessor extends GraphicsProcessor {
     private List<String> loadLabelList(Activity activity) throws IOException {
         // read the labels list from the assets
         List<String> labelList = new ArrayList<String>();
-        BufferedReader reader =
-                new BufferedReader(new InputStreamReader(activity.getAssets().open(LABEL_PATH)));
+        BufferedReader reader;
+        if(loadMergedModel)
+            reader = new BufferedReader(new InputStreamReader(activity.getAssets().open(LABEL_PATH_MERGED)));
+        else
+            reader = new BufferedReader(new InputStreamReader(activity.getAssets().open(LABEL_PATH)));
         String line;
         while ((line = reader.readLine()) != null) {
             labelList.add(line);

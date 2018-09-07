@@ -44,7 +44,7 @@ public class TrainActivity extends AppCompatActivity implements OnTaskCompleted 
 
         String filepath =  "/sdcard/Pictures/Testpictures";
         try {
-            cnnStream = new PrintWriter(filepath + "/cnn_result.txt");
+            cnnStream = new PrintWriter(filepath + "/cnn_result_3.txt");
         }catch (Exception e){
             e.printStackTrace();
         }

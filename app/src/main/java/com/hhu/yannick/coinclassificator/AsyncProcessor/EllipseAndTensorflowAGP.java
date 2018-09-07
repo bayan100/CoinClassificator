@@ -16,7 +16,7 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 
 public class EllipseAndTensorflowAGP extends AsyncGraphicsProcessor {
-    public EllipseAndTensorflowAGP(Bitmap bitmap, DatabaseManager databaseManager, Activity activity, OnTaskCompleted listener)
+    public EllipseAndTensorflowAGP(Bitmap bitmap, DatabaseManager databaseManager, Activity activity, boolean mergedModel, OnTaskCompleted listener)
     {
         super(listener);
 
@@ -32,6 +32,7 @@ public class EllipseAndTensorflowAGP extends AsyncGraphicsProcessor {
         processors.add(new EllipseGP(EllipseGP.Type.FIND));
 
         TensorflowProcessor tf = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity, databaseManager);
+        tf.changeModel(mergedModel);
 
         gp = new ResizeGP(ResizeGP.Type.RESIZE_ELLIPSE);
         gp.setImage(bitmap.copy(bitmap.getConfig(), true));

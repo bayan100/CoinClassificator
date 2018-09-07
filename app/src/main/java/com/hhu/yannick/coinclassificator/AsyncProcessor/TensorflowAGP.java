@@ -11,13 +11,14 @@ import com.hhu.yannick.coinclassificator.Tensorflow.TensorflowProcessor;
 import java.util.ArrayList;
 
 public class TensorflowAGP extends AsyncGraphicsProcessor {
-    public TensorflowAGP(Bitmap bitmap, DatabaseManager databaseManager, Activity activity, OnTaskCompleted listener)
+    public TensorflowAGP(Bitmap bitmap, DatabaseManager databaseManager, Activity activity, boolean mergedModel, OnTaskCompleted listener)
     {
         super(listener);
 
         ArrayList<GraphicsProcessor> processors = new ArrayList<>();
         TensorflowProcessor gp = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity, databaseManager);
         gp.setImage(bitmap.copy(bitmap.getConfig(), true));
+        gp.changeModel(mergedModel);
         processors.add(gp);
 
         task = processors;

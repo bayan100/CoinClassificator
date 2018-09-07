@@ -15,6 +15,7 @@ public class CoinData {
 
     public static String valueToString(int value){
         switch (value){
+            case -1: return "";
             case 0: return "1/2 Euro";
             case 1: return "50/20/10 Cent";
             case 2: return "5/2/1 Cent";

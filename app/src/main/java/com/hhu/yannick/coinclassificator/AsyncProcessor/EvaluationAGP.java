@@ -24,7 +24,7 @@ import java.util.TreeMap;
 
 public class EvaluationAGP extends AsyncGraphicsProcessor {
 
-    private List<Bitmap> testData;
+    private List<String> testData;
     private List<String> testDataExpected;
 
     public EvaluationAGP(DatabaseManager dbm, Context context, OnTaskCompleted listener) {
@@ -42,12 +42,12 @@ public class EvaluationAGP extends AsyncGraphicsProcessor {
 
         loadTestData();
         ArrayList<GraphicsProcessor> processors = new ArrayList<>();
-        for (int i = 0; i < testData.size(); i++) {
-            Bitmap bitmap = testData.get(i);
-            Log.d("EVAL", i + ", " + bitmap.getWidth() + ", " +bitmap.getHeight());
+        for (int i = 120; i < 160 && i < testData.size(); i++) {
 
+            EvaluationGP egp = new EvaluationGP(EvaluationGP.Type.LOADBITMAP, testData.get(i));
             ResizeGP gp = new ResizeGP(ResizeGP.Type.LINEAR);
-            gp.setImage(bitmap.copy(bitmap.getConfig(), true));
+            //gp.setImage(bitmap.copy(bitmap.getConfig(), true));
+            processors.add(egp);
             processors.add(gp);
             processors.add(new BlurGP(BlurGP.Type.MEDIAN));
             processors.add(new ContourGP(ContourGP.Type.CANNYEDGE));
@@ -57,9 +57,12 @@ public class EvaluationAGP extends AsyncGraphicsProcessor {
             processors.add(new EllipseGP(EllipseGP.Type.FIND));
 
             TensorflowProcessor tf = new TensorflowProcessor(TensorflowProcessor.Task.CLASSIFY, activity, dbm);
+            tf.changeModel(true);
 
+            egp = new EvaluationGP(EvaluationGP.Type.LOADBITMAP, testData.get(i));
+            processors.add(egp);
             gp = new ResizeGP(ResizeGP.Type.RESIZE_ELLIPSE);
-            gp.setImage(bitmap.copy(bitmap.getConfig(), true));
+            //gp.setImage(bitmap.copy(bitmap.getConfig(), true));
             processors.add(gp);
             processors.add(new ResizeGP(ResizeGP.Type.CROP));
             gp = new ResizeGP(ResizeGP.Type.LINEAR);
@@ -80,10 +83,13 @@ public class EvaluationAGP extends AsyncGraphicsProcessor {
 
         File[] listOfFiles = (new File(filepath)).listFiles();
         for (File f: listOfFiles) {
-            Log.d("EVAL", f.getAbsolutePath());
-            testData.add(BitmapFactory.decodeFile(f.getAbsolutePath()));
-            String[] s = f.getName().split("_");
-            testDataExpected.add(s[0] + "_" + s[1]);
+            if (f.isFile()) {
+                Log.d("EVAL", f.getAbsolutePath());
+                testData.add(f.getAbsolutePath());
+                //testData.add(BitmapFactory.decodeFile(f.getAbsolutePath()));
+                String[] s = f.getName().split("_");
+                testDataExpected.add(s[0] + "_" + s[1]);
+            }
         }
     }
 }
