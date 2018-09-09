@@ -3,7 +3,6 @@
 <string-array name="spinner_array">
     <item>Classify</item>
     <item>Ellipse + Classify</item>
-    <item>Add Trainings Data</item>
 </string-array>
 <string-array name="descriptor_array">
     <item>SIFT</item>

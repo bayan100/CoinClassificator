@@ -17,8 +17,14 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -97,8 +103,26 @@ public class EvaluationGP extends GraphicsProcessor {
             return Status.PASSED;
         }
         else {
-            loadTestPicture();
+            //loadTestPicture();
+
             return Status.PASSED;
+        }
+    }
+
+    private static void copyFileUsingStream(File source, File dest) throws IOException {
+        InputStream is = null;
+        OutputStream os = null;
+        try {
+            is = new FileInputStream(source);
+            os = new FileOutputStream(dest);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) > 0) {
+                os.write(buffer, 0, length);
+            }
+        } finally {
+            is.close();
+            os.close();
         }
     }
 
@@ -130,7 +154,7 @@ public class EvaluationGP extends GraphicsProcessor {
 
     private void doFeatureTests(FeatureGP.DetectorType detectorType, FeatureGP.MatchMethode matchMethode, PrintWriter  writer){
         // create the FeatureGP instance we will abuse for testing
-        FeatureGP tester = new FeatureGP(detectorType, matchMethode, dbm, context);
+        FeatureGP tester = new FeatureGP(detectorType, matchMethode, dbm, context, null);
         Map<CoinData, FeatureData> features = tester.loadFeatures();
 
         for (int i = 0; i < testData.size(); i++) {

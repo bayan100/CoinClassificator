@@ -3,11 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="com.hhu.yannick.coinclassificator.ClassifyActivity">
     <item
-        android:id="@+id/action_parameter"
-        android:orderInCategory="100"
-        android:title="@string/action_parameter"
-        app:showAsAction="never" />
-    <item
         android:id="@+id/action_features"
         android:orderInCategory="100"
         android:title="@string/action_features"

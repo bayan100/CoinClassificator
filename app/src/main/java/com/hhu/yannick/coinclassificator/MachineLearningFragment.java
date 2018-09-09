@@ -169,6 +169,7 @@ public class MachineLearningFragment extends Fragment implements OnTaskCompleted
             // get the corresponding flag
             if(main.result.containsKey("flag"))
                 flagView.setImageBitmap((Bitmap) main.result.get("flag"));
+            informationText.setText((String)main.result.get("information"));
         }
 
         if(showMoreResults)

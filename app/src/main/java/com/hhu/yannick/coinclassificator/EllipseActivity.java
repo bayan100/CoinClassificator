@@ -70,13 +70,13 @@ public class EllipseActivity extends AppCompatActivity implements OnTaskComplete
             }
         });
 
-        Button save_button = findViewById(R.id.button_save);
+        /*Button save_button = findViewById(R.id.button_save);
         save_button.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 savePicture();
                 v.setEnabled(false);
             }
-        });
+        });*/
 
         // initialize and start the async task
         agp = new DrawEllipseAGP(bitmap, this);

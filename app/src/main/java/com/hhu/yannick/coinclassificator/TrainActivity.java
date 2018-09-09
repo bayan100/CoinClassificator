@@ -40,16 +40,16 @@ public class TrainActivity extends AppCompatActivity implements OnTaskCompleted 
 
         //generateFeaturesAGP = new GenerateFeaturesAGP(databaseManager, getApplicationContext(), this);
         //generateFeaturesAGP.execute();
-        //evaluationAGP = new EvaluationAGP(databaseManager, getApplicationContext(), this);
+        evaluationAGP = new EvaluationAGP(databaseManager, getApplicationContext(), this);
 
-        String filepath =  "/sdcard/Pictures/Testpictures";
+        /*String filepath =  "/sdcard/Pictures/Testpictures";
         try {
             cnnStream = new PrintWriter(filepath + "/cnn_result_3.txt");
         }catch (Exception e){
             e.printStackTrace();
         }
         evaluationAGP = new EvaluationAGP(databaseManager, this, cnnStream, this);
-
+*/
         evaluationAGP.execute();
     }
 

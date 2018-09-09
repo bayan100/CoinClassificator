@@ -56,6 +56,7 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
     // cached variables
     private RotatedRect ellipse;
     private boolean moreResults;
+    private boolean drawExtendedFeatures;
 
     public FeatureFragment() {
         // Required empty public constructor
@@ -136,16 +137,24 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
                 main = new EllipseAndFeatureAGP(bitmap, databaseManager, getContext(),
                         detectorSpinner.getSelectedItem().toString(),
                         matcherSpinner.getSelectedItem().toString(),
+                        getActivity(),
+                        drawExtendedFeatures,
                         this);
             } else {
                 main = new FeatureAGP(bitmap, databaseManager, getContext(), ellipse,
                         detectorSpinner.getSelectedItem().toString(),
                         matcherSpinner.getSelectedItem().toString(),
+                        drawExtendedFeatures,
                         this);
             }
             // run the async task
             main.execute();
         }
+    }
+
+    public void drawExtendedFeatures(){
+        drawExtendedFeatures = !drawExtendedFeatures;
+        startExecution();
     }
 
     public void showMoreResults(){
@@ -211,6 +220,7 @@ public class FeatureFragment extends Fragment implements AdapterView.OnItemSelec
                 // get the corresponding flag
                 if(main.result.containsKey("flag"))
                     flagView.setImageBitmap((Bitmap) main.result.get("flag"));
+                informationText.setText((String)main.result.get("information"));
             }
             // main.result.get("ellipse")
         }

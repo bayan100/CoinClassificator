@@ -1,10 +1,14 @@
 package com.hhu.yannick.coinclassificator.AsyncProcessor.Processor;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.util.Log;
 
+import com.hhu.yannick.coinclassificator.R;
 import com.hhu.yannick.coinclassificator.SQLite.CoinData;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 import com.hhu.yannick.coinclassificator.SQLite.FeatureData;
@@ -29,15 +33,22 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.xfeatures2d.SIFT;
 import org.opencv.xfeatures2d.SURF;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 public class FeatureGP extends GraphicsProcessor {
@@ -57,13 +68,17 @@ public class FeatureGP extends GraphicsProcessor {
 
     private DatabaseManager databaseManager;
     private Context context;
+    private Activity activity;
     private String directory = null;
+    private boolean extendedFeatureDraw = false;
 
-    public FeatureGP(DetectorType detectorType, MatchMethode matchMethode, DatabaseManager databaseManager, Context context){
+    public FeatureGP(DetectorType detectorType, MatchMethode matchMethode,
+                     DatabaseManager databaseManager, Context context, Activity activity){
         this.detectorType = detectorType;
         this.matchMethode = matchMethode;
         this.databaseManager = databaseManager;
         this.context = context;
+        this.activity = activity;
 
         parameter.put("nFeaturesMax", -1);
         parameter.put("nFeaturesMin", -1);
@@ -90,6 +105,7 @@ public class FeatureGP extends GraphicsProcessor {
             //generateCountry("/sdcard/Pictures/Testpictures/flags/");
             //generateBunch(directory);
             //loadFeatures();
+            //generateInformation();
             return Status.PASSED;
         }
         // classify by feature
@@ -112,12 +128,18 @@ public class FeatureGP extends GraphicsProcessor {
             CoinData result = matchAgainstCoins(featureData, features);
             data.put("coin", result);
             loadFlag(result.country);
+            // load information
+            data.put("information", databaseManager.loadInformation(result));
             return Status.PASSED;
         }
     }
 
     /*private*/ FeatureData generateFeatures(Mat data){
         return generateFeatures(data, new RotatedRect(new Point(data.size().width / 2, data.size().height / 2), data.size(), 0));
+    }
+
+    public void setExtendedFeatureDraw(boolean e){
+        this.extendedFeatureDraw = e;
     }
 
     private FeatureData generateFeatures(Mat mat, RotatedRect ellipse){
@@ -139,8 +161,6 @@ public class FeatureGP extends GraphicsProcessor {
 
                 // compute features
                 detector.detectAndCompute(mat, mask, keypoints, descriptors);
-                // draw features on bitmap
-                Features2d.drawKeypoints(mat, keypoints, mat);
                 break;
 
             case SURF:
@@ -151,8 +171,6 @@ public class FeatureGP extends GraphicsProcessor {
                     do {
                         detector = SURF.create(hessianThreshold, 4, 3, false, false);
                         detector.detectAndCompute(mat, mask, keypoints, descriptors);
-
-                        Log.d("SURF", "thresh: " + hessianThreshold + ", desc: " + keypoints.size().height);
 
                         // modify the threshold to get into the right feature range
                         // binary search on the threshold
@@ -171,9 +189,6 @@ public class FeatureGP extends GraphicsProcessor {
                     detector = SURF.create(200, 4, 3, false, false);
                     detector.detectAndCompute(mat, mask, keypoints, descriptors);
                 }
-                // draw keypoints
-                Features2d.drawKeypoints(mat, keypoints, mat, new Scalar(255, 255, 0), 4);
-
                 break;
             case ORB:
                 if(getInt("nFeaturesMax") > 0)
@@ -182,11 +197,14 @@ public class FeatureGP extends GraphicsProcessor {
                 else
                     detector = ORB.create();
                 detector.detectAndCompute(mat, mask, keypoints, descriptors);
-                // draw keypoints
-                Features2d.drawKeypoints(mat, keypoints, mat);
                 break;
         }
 
+        // draw keypoints according to chosen style
+        if(extendedFeatureDraw)
+            Features2d.drawKeypoints(mat, keypoints, mat, new Scalar(255, 255, 0), 4);
+        else
+            Features2d.drawKeypoints(mat, keypoints, mat);
 
         // put them onto the bitmap
         data.put("mat", mat);
@@ -259,26 +277,27 @@ public class FeatureGP extends GraphicsProcessor {
         List<DMatch> matches = null;
         switch (matchMethode) {
             case LOWE_RATIO_TEST:
-                List<MatOfDMatch> knnMatches = new ArrayList<>();
+                if(detectorType != DetectorType.ORB) {
+                    List<MatOfDMatch> knnMatches = new ArrayList<>();
 
-                // k-nearest-neighbors with k=2 for Lowe
-                matcher.knnMatch(input.descriptor, feature.descriptor, knnMatches, 2);
-                int found = 0;
-                // filter matches using the Lowe's ratio test
-                double ratioThresh = 0.7;
-                //List<DMatch> listOfGoodMatches = new ArrayList<>();
-                for (int i = 0; i < knnMatches.size(); i++) {
-                    if (knnMatches.get(i).rows() > 1) {
-                        DMatch[] ma = knnMatches.get(i).toArray();
-                        if (ma[0].distance < ratioThresh * ma[1].distance
-                            || ma[1].distance < ratioThresh * ma[0].distance) {
-                            //listOfGoodMatches.add(matches[0]);
-                            found++;
+                    // k-nearest-neighbors with k=2 for Lowe
+                    matcher.knnMatch(input.descriptor, feature.descriptor, knnMatches, 2);
+                    int found = 0;
+                    // filter matches using the Lowe's ratio test
+                    double ratioThresh = 0.7;
+                    //List<DMatch> listOfGoodMatches = new ArrayList<>();
+                    for (int i = 0; i < knnMatches.size(); i++) {
+                        if (knnMatches.get(i).rows() > 1) {
+                            DMatch[] ma = knnMatches.get(i).toArray();
+                            if (ma[0].distance < ratioThresh * ma[1].distance
+                                    || ma[1].distance < ratioThresh * ma[0].distance) {
+                                //listOfGoodMatches.add(matches[0]);
+                                found++;
+                            }
                         }
                     }
+                    return (double) found / knnMatches.size();
                 }
-                return (double) found / knnMatches.size();
-
 
             // intuitive
             case SMALLEST_DISTANCE:
@@ -461,7 +480,25 @@ public class FeatureGP extends GraphicsProcessor {
 
             // save to database
             //databaseManager.putFeature(feature, new CoinData(value, country));
-            Log.d("FEATURE", fileEntry.getName());
+        }
+    }
+
+    private void generateInformation(){
+
+        // lookup the text file in the give directory
+        File text = new File(directory);
+        // read content and give to database
+        try(BufferedReader br = new BufferedReader(new FileReader(text))) {
+            for(String line; (line = br.readLine()) != null; ) {
+                String[] s = line.split(":");
+                String country = s[0].split("_")[0];
+                int value = Integer.parseInt(s[0].split("_")[1]);
+
+                // put into database
+                databaseManager.putInformation(new CoinData(value, -1, country), s[1]);
+            }
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 
@@ -476,97 +513,69 @@ public class FeatureGP extends GraphicsProcessor {
     }
 
     /*private*/ Map<CoinData, FeatureData> loadFeatures(){
-        // load the Feature-Type binary file
-        String binFile = detectorType.toString() + ".bin";
-        File bin = null;
-        File storage = context.getFilesDir();
-
-        // find it
-        for (File fileEntry : storage.listFiles())
-            if(fileEntry.getName().equals(binFile)) {
-                bin = fileEntry;
-                break;
-            }
 
         // load the information about the binarys from the database
         Map<CoinData, FeatureData> featureDataMap = databaseManager.getFeaturesByType(detectorType.toString());
+        try{
+            // take the right resource
+            InputStream inputStream;
+            if(detectorType == DetectorType.SIFT)
+                inputStream = activity.getResources().openRawResource(R.raw.sift);
+            else if(detectorType == DetectorType.SURF)
+                inputStream = activity.getResources().openRawResource(R.raw.surf);
+            else
+                inputStream = activity.getResources().openRawResource(R.raw.orb);
 
-        RandomAccessFile output = null;
-        try {
-            // open and read from binary file
-            output = new RandomAccessFile(bin, "rw");
-            for (CoinData c : featureDataMap.keySet()) {
-                FeatureData featureData = featureDataMap.get(c);
-                byte[] binary = new byte[featureData.length];
+            // read features, sorted by lowest start-byte
+            Set<CoinData> keySet = new HashSet<>(featureDataMap.keySet());
+            while (keySet.size() > 0){
+                int lowestStart = Integer.MAX_VALUE;
+                CoinData lowestKey = null;
 
-                    output.seek(featureData.start);
-                    try {
-                        Log.d("LOAD", "start: " + featureData.start + ", len: " + featureData.length);
-                        output.read(binary, 0, binary.length);
-                    } finally {
-                        // put the descriptor to the features
-                        Mat mat = MatSerializer.matFromBytes(binary);
-                        featureData.descriptor = mat;
+                // find lowest
+                for (CoinData c : keySet){
+                    if(featureDataMap.get(c).start < lowestStart){
+                        lowestKey = c;
+                        lowestStart = featureDataMap.get(c).start;
                     }
+                }
+
+                // read from InputStream
+                byte[] buffer = new byte[featureDataMap.get(lowestKey).length];
+                inputStream.read(buffer, 0, buffer.length);
+                featureDataMap.get(lowestKey).descriptor = MatSerializer.matFromBytes(buffer);
+
+                // remove the filled key
+                keySet.remove(lowestKey);
             }
-        } catch (Exception e) {
+            inputStream.close();
+
+        }catch (Exception e){
             e.printStackTrace();
-        }
-        finally {
-            try {
-                // close the file
-                if (output != null)
-                    output.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         }
         return featureDataMap;
     }
 
     private void loadFlag(String country){
-        String binFile = "FLAGS.bin";
-        File bin = null;
-        File storage = context.getFilesDir();
+       try {
+            InputStream inputStream = activity.getResources().openRawResource(R.raw.flags);
 
-        // find it
-        for (File fileEntry : storage.listFiles())
-            if(fileEntry.getName().equals(binFile)) {
-                bin = fileEntry;
-                break;
-            }
+            int[] binSL = databaseManager.getCountryFlag(country);
+            Mat flag = null;
 
-        // load the information about the binarys from the database
-        int[] binSL = databaseManager.getCountryFlag(country);
-        Mat flag = null;
-        RandomAccessFile output = null;
-        try {
-            // open and read from binary file
-            output = new RandomAccessFile(bin, "rw");
+            byte[] buffer = new byte[binSL[1]];
+            inputStream.skip(binSL[0]);
+            inputStream.read(buffer);
 
-                byte[] binary = new byte[binSL[1]];
+            // convert flag
+            flag = MatSerializer.matFromBytes(buffer);
+            if(flag != null)
+                data.put("flag", toBitmap(flag));
 
-                output.seek(binSL[0]);
-                try {
-                    output.read(binary, 0, binary.length);
-                } finally {
-                    // convert flag
-                    flag = MatSerializer.matFromBytes(binary);
-                }
+            inputStream.close();
 
-        } catch (Exception e) {
+        }catch (Exception e){
             e.printStackTrace();
         }
-        finally {
-            try {
-                // close the file
-                if (output != null)
-                    output.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        if(flag != null)
-            data.put("flag", toBitmap(flag));
     }
 }

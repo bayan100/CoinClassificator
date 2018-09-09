@@ -1,5 +1,6 @@
 package com.hhu.yannick.coinclassificator;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -23,6 +24,7 @@ import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -199,12 +201,43 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     @Override
     protected void onResume() {
         super.onResume();
-        openBackgroundThread();
-        if (textureView.isAvailable()) {
-            setUpCamera();
-            openCamera();
-        } else {
-            textureView.setSurfaceTextureListener(surfaceTextureListener);
+
+        // check for permissions
+        if (ContextCompat.checkSelfPermission(this,  Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            // request it if not granted
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.CAMERA},
+                    0);
+        }
+        else {
+            // open and set up the camera
+            openBackgroundThread();
+            if (textureView.isAvailable()) {
+                setUpCamera();
+                openCamera();
+            } else {
+                textureView.setSurfaceTextureListener(surfaceTextureListener);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case 0: {
+                // If request is cancelled, the result arrays are empty.
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // granted, resume
+                    openBackgroundThread();
+                    if (textureView.isAvailable()) {
+                        setUpCamera();
+                        openCamera();
+                    } else {
+                        textureView.setSurfaceTextureListener(surfaceTextureListener);
+                    }
+                }
+            }
         }
     }
 

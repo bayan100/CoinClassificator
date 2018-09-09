@@ -236,4 +236,47 @@ public class DatabaseManager {
         cursor.close();
         return result;
     }
+
+    public void putInformation(CoinData coinData, String info){
+        // find the id corresponding to the coin
+        String sql = "SELECT Coin.id FROM Country, Coin WHERE " +
+                "Coin.Country_id = Country.id AND " +
+                "Coin.Value = " + coinData.value + " AND " +
+                "Country.Name = '" + coinData.country + "';";
+        Cursor cursor = database.rawQuery(sql, null);
+        cursor.moveToFirst();
+        try {
+            int coinId = cursor.getInt(0);
+            cursor.close();
+
+            // put a new Information data into the database
+            ContentValues values = new ContentValues();
+            values.put("Coin_id", coinId);
+            values.put("Text", info);
+            database.insert("Information", null, values);
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    public String loadInformation(CoinData coinData){
+        // find the id corresponding to the coin
+        String sql = "SELECT Information.Text FROM Country, Coin, Information WHERE " +
+                "Coin.Country_id = Country.id AND " +
+                "Coin.Value = " + coinData.value + " AND " +
+                "Country.Name = '" + coinData.country + "' AND " +
+                "Information.Coin_id = Coin.id ;";
+        Cursor cursor = database.rawQuery(sql, null);
+        cursor.moveToFirst();
+        try {
+            String info = cursor.getString(0);
+            cursor.close();
+
+            return info;
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return "INFORMATION MISSING";
+    }
 }

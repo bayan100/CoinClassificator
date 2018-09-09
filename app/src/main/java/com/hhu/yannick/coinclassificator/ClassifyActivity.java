@@ -117,6 +117,10 @@ public class ClassifyActivity extends AppCompatActivity implements OnTaskComplet
             if(machineLearningFragment != null)
                 machineLearningFragment.loadDifferentGraph();
         }
+        else if(id == R.id.action_features){
+            if(featureFragment != null)
+                featureFragment.drawExtendedFeatures();
+        }
 
         return super.onOptionsItemSelected(item);
     }

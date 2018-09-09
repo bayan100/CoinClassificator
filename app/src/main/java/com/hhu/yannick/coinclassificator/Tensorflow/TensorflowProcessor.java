@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.util.Log;
 
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.GraphicsProcessor;
+import com.hhu.yannick.coinclassificator.R;
 import com.hhu.yannick.coinclassificator.SQLite.CoinData;
 import com.hhu.yannick.coinclassificator.SQLite.DatabaseManager;
 import com.hhu.yannick.coinclassificator.SQLite.MatSerializer;
@@ -18,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -142,6 +144,8 @@ public class TensorflowProcessor extends GraphicsProcessor {
         data.put("accuracy", result.lastKey());
         data.put("results", result);
         loadFlag(cd.country);
+        // load information
+        data.put("information", databaseManager.loadInformation(cd));
     }
 
     public void changeModel(boolean loadMergedModel){
@@ -224,48 +228,25 @@ public class TensorflowProcessor extends GraphicsProcessor {
     }
 
     private void loadFlag(String country){
-        String binFile = "FLAGS.bin";
-        File bin = null;
-        File storage = activity.getApplicationContext().getFilesDir();
-
-        // find it
-        for (File fileEntry : storage.listFiles())
-            if(fileEntry.getName().equals(binFile)) {
-                bin = fileEntry;
-                break;
-            }
-
-        // load the information about the binarys from the database
-        int[] binSL = databaseManager.getCountryFlag(country);
-        Mat flag = null;
-        RandomAccessFile output = null;
         try {
-            // open and read from binary file
-            output = new RandomAccessFile(bin, "rw");
+            InputStream inputStream = activity.getResources().openRawResource(R.raw.flags);
 
-            byte[] binary = new byte[binSL[1]];
+            int[] binSL = databaseManager.getCountryFlag(country);
+            Mat flag = null;
 
-            output.seek(binSL[0]);
-            try {
-                output.read(binary, 0, binary.length);
-            } finally {
-                // convert flag
-                flag = MatSerializer.matFromBytes(binary);
-            }
+            byte[] buffer = new byte[binSL[1]];
+            inputStream.skip(binSL[0]);
+            inputStream.read(buffer);
 
-        } catch (Exception e) {
+            // convert flag
+            flag = MatSerializer.matFromBytes(buffer);
+            if(flag != null)
+                data.put("flag", toBitmap(flag));
+
+            inputStream.close();
+
+        }catch (Exception e){
             e.printStackTrace();
         }
-        finally {
-            try {
-                // close the file
-                if (output != null)
-                    output.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        if(flag != null)
-            data.put("flag", toBitmap(flag));
     }
 }

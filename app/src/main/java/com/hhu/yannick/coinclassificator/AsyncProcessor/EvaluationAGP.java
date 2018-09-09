@@ -10,6 +10,7 @@ import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.BlurGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.ContourGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.EllipseGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.EvaluationGP;
+import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.FeatureGP;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.GraphicsProcessor;
 import com.hhu.yannick.coinclassificator.AsyncProcessor.Processor.ResizeGP;
 import com.hhu.yannick.coinclassificator.SQLite.CoinData;
@@ -31,7 +32,8 @@ public class EvaluationAGP extends AsyncGraphicsProcessor {
         super(listener);
 
         ArrayList<GraphicsProcessor> processors = new ArrayList<>();
-        EvaluationGP gp = new EvaluationGP(EvaluationGP.Type.FEATURES, dbm, context);
+        EvaluationGP gp = new EvaluationGP(EvaluationGP.Type.LOADBITMAP, dbm, context);
+        //FeatureGP gp = new FeatureGP("/sdcard/Pictures/Testpictures/cointext.txt", FeatureGP.DetectorType.SIFT, dbm, context);
         processors.add(gp);
         task = processors;
 

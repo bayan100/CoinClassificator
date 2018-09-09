@@ -1,5 +1,6 @@
 package com.hhu.yannick.coinclassificator.AsyncProcessor;
 
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 
@@ -17,7 +18,9 @@ import org.opencv.core.RotatedRect;
 import java.util.ArrayList;
 
 public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
-    public EllipseAndFeatureAGP(Bitmap bitmap, DatabaseManager databaseManager, Context context, String detector, String matcher, OnTaskCompleted listener)
+    public EllipseAndFeatureAGP(Bitmap bitmap, DatabaseManager databaseManager, Context context,
+                                String detector, String matcher, Activity activity,
+                                boolean drawExtendedFeatures, OnTaskCompleted listener)
     {
         super(listener);
 
@@ -40,11 +43,8 @@ public class EllipseAndFeatureAGP extends AsyncGraphicsProcessor {
         FeatureGP fp = new FeatureGP(
                 getEnum(FeatureGP.DetectorType.class, detector),
                 getEnum(matcher),
-                databaseManager, context);
-        /*FeatureGP fp = new FeatureGP(
-                FeatureGP.DetectorType.ORB,
-                getEnum(FeatureGP.MatcherType.class, matcher),
-                databaseManager, context);*/
+                databaseManager, context, activity);
+        fp.setExtendedFeatureDraw(drawExtendedFeatures);
         fp.setParameter("nFeaturesMax", 256);
         fp.setParameter("nFeaturesMin", 128);
         processors.add(fp);

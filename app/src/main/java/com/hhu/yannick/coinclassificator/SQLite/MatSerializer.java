@@ -21,8 +21,6 @@ public class MatSerializer {
             int elemSize = (int) mat.elemSize();
             int type = mat.type();
 
-            Log.d("MAT", "type: " + type + ", rows: " + rows + ", cols: " + cols);
-
             byte[] bytes;
 
             if( type == CvType.CV_32S || type == CvType.CV_32SC2 || type == CvType.CV_32SC3 || type == CvType.CV_16S ) {
@@ -77,8 +75,6 @@ public class MatSerializer {
         int type = fromByte(bytes, 0);
         int rows = fromByte(bytes, 4);
         int cols = fromByte(bytes, 8);
-
-        Log.d("MAT", "type: " + type + ", rows: " + rows + ", cols: " + cols);
 
         Mat mat = new Mat(rows, cols, type);
         ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, 12, bytes.length));
